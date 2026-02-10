@@ -27,12 +27,13 @@ A conversational skill with two modes:
 
 **Create a New Space:**
 1. **Gathering requirements** — purpose, audience, and data domain
-2. **Identifying data sources** — Unity Catalog tables to include
+2. **Identifying data sources** — Unity Catalog tables to include, with metadata quality audit
 3. **Defining sample questions** — business-friendly starter questions for end users
 4. **Configuring instructions** — SQL expressions, example SQL queries, parameterized queries, UDFs, and text instructions
 5. **Discovering resources** — finding serverless SQL warehouses and workspace URLs
-6. **Creating the space** — generating the `serialized_space` JSON and calling the Genie API
-7. **Testing and iterating** — self-testing, benchmarking, user testing, and monitoring
+6. **Validating and testing** — validate JSON config, test example SQL queries, check formatting
+7. **Creating the space** — generating the `serialized_space` JSON and calling the Genie API
+8. **Testing and iterating** — self-testing, benchmarking, user testing, and monitoring
 
 **Manage an Existing Space:**
 1. **Retrieving configuration** — fetch and parse the current space setup
