@@ -28,7 +28,7 @@ A step-by-step conversational skill that guides you through:
 ### `.assistant_instructions.md`
 
 Custom user instructions that tell the Databricks Assistant to automatically load the `create-genie-space` skill whenever you're working with Genie spaces.
-
+`
 ## Getting Started
 
 ### Prerequisites
@@ -121,17 +121,4 @@ For full API documentation, see:
 - [Genie API Reference](https://docs.databricks.com/api/workspace/genie)
 - [Create Genie Space API](https://docs.databricks.com/api/workspace/genie/createspace)
 
-## Contributing
-
-Contributions are welcome! To add a new skill:
-
-1. Create a new folder under the repository root (e.g., `my-new-skill/`)
-2. Add a `SKILL.MD` file with the required frontmatter (`name` and `description`) and markdown instructions
-3. Update `.assistant_instructions.md` to reference your new skill
-4. Submit a pull request
-
 See the [Databricks skill authoring best practices](https://docs.databricks.com/aws/en/assistant/skills#best-practices) for guidance on writing effective skills.
-
-## License
-
-This project is provided as-is for use with Databricks workspaces.
