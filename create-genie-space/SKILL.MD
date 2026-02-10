@@ -162,7 +162,9 @@ Use complete example SQL queries for hard-to-interpret, multi-part, or complex q
 - Multi-step calculations (e.g., "For customers who joined recently, what products are doing best?")
 - Domain-specific aggregations or breakdowns (e.g., "breakdown my team's performance")
 
-**Include multiple phrasings** for each example to help Genie match variations:
+**Include multiple phrasings** for each example to help Genie match variations.
+
+**Critical formatting rule:** Each phrasing must be a **separate string element** in the array. Never concatenate multiple phrasings into one string.
 
 json
 {
@@ -171,7 +173,15 @@ json
     "Show me sales broken down by category",
     "Sales by category"
   ],
-  "sql": ["SELECT p.category, SUM(o.quantity * o.unit_price) ..."]
+  "sql": [
+    "SELECT\n",
+    "  p.category,\n",
+    "  SUM(o.quantity * o.unit_price) as total_sales\n",
+    "FROM catalog.schema.orders o\n",
+    "JOIN catalog.schema.products p ON o.product_id = p.product_id\n",
+    "GROUP BY p.category\n",
+    "ORDER BY total_sales DESC"
+  ]
 }
 
 
@@ -338,9 +348,12 @@ json
 
 **Important Notes:**
 - `version`: **Required**. Use `2` for new spaces (version 1 exists for backwards compatibility only)
-- `question`: Must be an array of strings. You can include multiple phrasings of the same question:
-  - Single phrasing: `["What were total sales last month?"]`
-  - Multiple phrasings: `["What were total sales last month?", "Show me last month's sales", "Total sales for previous month"]`
+- `question`: Must be an array of strings. **Each phrasing must be a separate element** — never concatenate multiple phrasings into one string:
+  - Correct: `["What were total sales last month?", "Show me last month's sales", "Total sales for previous month"]`
+  - Wrong: `["What were total sales last month?Show me last month's salesTotal sales for previous month"]`
+- `sql`: Must be an array of strings. **Each SQL clause should be a separate element** with `\n` at the end:
+  - Correct: `["SELECT\n", "  col1,\n", "  col2\n", "FROM table\n", "WHERE col1 > 0"]`
+  - Wrong: `["SELECT col1, col2FROM tableWHERE col1 > 0"]`
 - `instructions`: Optional structured object containing:
   - `text_instructions`: Array of instruction objects (maximum 1 text instruction per space), each with a unique 32-char hex `id` and `content` array of strings
   - Can also include `example_question_sqls`, `join_specs`, `sql_snippets`, `sql_functions`, and other advanced configurations
@@ -391,6 +404,22 @@ POST https://<workspace-url>/api/2.0/genie/spaces
 - **Errors**: ID format, sorting, uniqueness, required fields, limits, concatenated questions, malformed SQL
 - **Warnings**: Table count, instruction budget, formatting issues
 - **Parameterization suggestions**: Detects similar queries that could be consolidated into parameterized queries, and flags hardcoded filter values that should use `:parameter` syntax
+
+### Test Example SQL Queries
+
+**Before calling the API**, execute every example SQL query to verify it runs successfully. Do not create the space with untested SQL.
+
+For each `example_question_sqls` entry in the configuration:
+
+1. **Join the `sql` array** into a single string: `query = "".join(sql_parts)`
+2. **Execute it**: `spark.sql(query).show()`
+3. **Check the result:**
+   - If it **errors** (syntax error, missing table/column, permission denied) — fix the SQL before proceeding
+   - If it **returns 0 rows** — verify the table has data and that any filter values or date ranges are correct
+   - If it **succeeds** — mark as passed
+4. **Report a summary** to the user: "X/Y example SQL queries passed"
+
+**Only proceed to create the space after all queries pass.** If any query fails, work with the user to fix the SQL first.
 
 ### Python Example
 
@@ -504,6 +533,7 @@ Before creating the space, verify:
 - [ ] Parent path exists in workspace
 - [ ] Sample questions are business-friendly and cover common use cases
 - [ ] **Example SQL queries** are included for complex or multi-step questions
+- [ ] **All example SQL queries have been executed** and return valid results (no errors, non-empty)
 - [ ] **Text instructions** are concise, specific, and non-conflicting
 - [ ] Instructions across all types are consistent (e.g., same rounding, same date conventions)
 - [ ] Title and description are provided
@@ -733,6 +763,10 @@ After the user approves changes, apply them via the PATCH API.
 
 **Reference script:** Run `scripts/validate_config.py` on the modified config **before** calling the PATCH API. This catches sorting errors, duplicate IDs, invalid formats, concatenated questions, malformed SQL, and suggests parameterization opportunities.
 
+### Test New or Modified SQL Queries
+
+If you are adding or changing `example_question_sqls`, **execute each new/modified query** before calling the PATCH API. Join the `sql` array into a single string, run it via `spark.sql(query).show()`, and confirm it returns valid results. Do not apply updates with untested SQL.
+
 ### Python Example
 
 **Reference script:** See `scripts/manage_space.py` (Part 2) for the complete update code. It shows how to add example SQL queries, sort all ID-based collections, and call the PATCH API.
@@ -754,12 +788,12 @@ json
     "Show me sales broken down by category"
   ],
   "sql": [
-    "SELECT ",
-    "  p.category,",
-    "  SUM(o.quantity * o.unit_price) as total_sales",
-    "FROM sales.gold.orders o",
-    "JOIN sales.gold.products p ON o.product_id = p.product_id",
-    "GROUP BY p.category",
+    "SELECT\n",
+    "  p.category,\n",
+    "  SUM(o.quantity * o.unit_price) as total_sales\n",
+    "FROM sales.gold.orders o\n",
+    "JOIN sales.gold.products p ON o.product_id = p.product_id\n",
+    "GROUP BY p.category\n",
     "ORDER BY total_sales DESC"
   ]
 }

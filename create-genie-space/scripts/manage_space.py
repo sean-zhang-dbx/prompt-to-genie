@@ -70,12 +70,12 @@ if total_instructions > 80:
 #     "id": example_sql_id,
 #     "question": ["What are total sales by product category?"],
 #     "sql": [
-#         "SELECT ",
-#         "  p.category,",
-#         "  SUM(o.quantity * o.unit_price) as total_sales",
-#         "FROM catalog.schema.orders o",
-#         "JOIN catalog.schema.products p ON o.product_id = p.product_id",
-#         "GROUP BY p.category",
+#         "SELECT\n",
+#         "  p.category,\n",
+#         "  SUM(o.quantity * o.unit_price) as total_sales\n",
+#         "FROM catalog.schema.orders o\n",
+#         "JOIN catalog.schema.products p ON o.product_id = p.product_id\n",
+#         "GROUP BY p.category\n",
 #         "ORDER BY total_sales DESC",
 #     ],
 # })

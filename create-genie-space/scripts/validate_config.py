@@ -348,37 +348,57 @@ def validate_config(config: dict) -> list[dict]:
 
     # --- Question formatting checks ---
     # Detect concatenated question phrasings (multiple sentences jammed into one string)
+    def check_question_formatting(q_str, path):
+        """Check a single question string for concatenation issues."""
+        # Multiple ? in a single string = likely concatenated phrasings
+        q_marks = q_str.count("?")
+        if q_marks > 1:
+            error(path, f"String contains {q_marks} question marks — likely multiple phrasings concatenated into one string. Split into separate array elements.")
+            return
+        # Detect sentences jammed together: "...level?Show" or "...groupsCompare"
+        # Pattern: lowercase/punctuation immediately followed by uppercase (no space)
+        jammed_sentences = re.findall(r'[a-z?.!]([A-Z][a-z])', q_str)
+        if jammed_sentences:
+            error(path, f"String appears to have multiple sentences concatenated without spaces (e.g., '...{q_str[max(0,q_str.find(jammed_sentences[0])-5):q_str.find(jammed_sentences[0])+10]}...'). Each phrasing must be a separate array element.")
+            return
+        # Very long single question without punctuation
+        if len(q_str) > 200 and "?" not in q_str:
+            warning(path, f"Very long question string ({len(q_str)} chars) without a question mark — check formatting")
+
     for i, sq in enumerate(sample_questions):
         for j, q_str in enumerate(sq.get("question", [])):
-            p = f"config.sample_questions[{i}].question[{j}]"
-            # Multiple ? in a single string = likely concatenated phrasings
-            q_marks = q_str.count("?")
-            if q_marks > 1:
-                error(p, f"String contains {q_marks} question marks — likely multiple phrasings concatenated into one string. Split into separate array elements.")
-            elif len(q_str) > 200 and "?" not in q_str:
-                warning(p, f"Very long question string ({len(q_str)} chars) without a question mark — check formatting")
+            check_question_formatting(q_str, f"config.sample_questions[{i}].question[{j}]")
 
     for i, eq in enumerate(example_sqls):
         for j, q_str in enumerate(eq.get("question", [])):
-            p = f"instructions.example_question_sqls[{i}].question[{j}]"
-            q_marks = q_str.count("?")
-            if q_marks > 1:
-                error(p, f"String contains {q_marks} question marks — likely multiple phrasings concatenated into one string. Split into separate array elements.")
+            check_question_formatting(q_str, f"instructions.example_question_sqls[{i}].question[{j}]")
 
     # --- SQL formatting checks ---
-    # Detect SQL that's all on one line (missing newlines)
+    # Detect SQL that's all on one line or has keywords jammed together
+    SQL_KEYWORDS = {"SELECT", "FROM", "WHERE", "JOIN", "LEFT", "RIGHT", "INNER",
+                    "OUTER", "CROSS", "GROUP", "ORDER", "HAVING", "LIMIT", "UNION",
+                    "INSERT", "UPDATE", "DELETE", "CREATE", "WITH", "CASE", "WHEN"}
+
     for i, eq in enumerate(example_sqls):
         sql_parts = eq.get("sql", [])
         if sql_parts:
             full_sql = "".join(sql_parts)
             p = f"instructions.example_question_sqls[{i}].sql"
-            # If SQL is long but has no newlines, it's likely unformatted
-            if len(full_sql) > 100 and "\n" not in full_sql:
-                warning(p, f"SQL is {len(full_sql)} chars on a single line — split into multiple lines for readability. Each line should be a separate array element ending with '\\n'.")
-            # Check for SQL keywords jammed together (e.g., "...country_countFROM" or "...antigenORDER")
+
+            # Check 1: SQL keywords jammed together without whitespace
+            # e.g., "country_countFROM" or "antigenORDER" or "stockoutsFROM"
             jammed = re.findall(r'[a-z0-9_)][A-Z]{2,}', full_sql)
-            if jammed and "\n" not in full_sql:
-                error(p, f"SQL keywords appear concatenated without whitespace (e.g., '{jammed[0]}'). Likely missing newlines between SQL clauses. Each clause should be a separate array element.")
+            jammed_keywords = [m for m in jammed if any(m[1:].startswith(kw) for kw in SQL_KEYWORDS)]
+            if jammed_keywords:
+                error(p, f"SQL keywords concatenated without whitespace (e.g., '{jammed_keywords[0]}'). "
+                      f"Missing newlines between SQL clauses. Each clause should be a separate array element.")
+            # Check 2: Entire SQL in a single array element and long
+            elif len(sql_parts) == 1 and len(full_sql) > 100:
+                error(p, f"Entire SQL query is in a single array element ({len(full_sql)} chars). "
+                      f"Split each clause (SELECT, FROM, WHERE, etc.) into a separate array element.")
+            # Check 3: SQL is long with no newlines across all elements
+            elif len(full_sql) > 100 and "\n" not in full_sql:
+                warning(p, f"SQL is {len(full_sql)} chars on a single line — consider adding '\\n' at the end of each array element for readability.")
 
     # --- Similar query detection and parameterization suggestions ---
     def normalize_sql(sql_parts):
@@ -513,7 +533,7 @@ else:
     print(f"  Instruction budget: {total_instr}/100")
 
     # Categorize warnings for cleaner output
-    formatting_keywords = ["concatenated", "single line", "without whitespace"]
+    formatting_keywords = ["concatenated", "single line", "single array element", "without whitespace", "question mark"]
     similarity_keywords = ["identical SQL structure", "similar but SQL differs", "hardcoded filter"]
 
     formatting_issues = [
