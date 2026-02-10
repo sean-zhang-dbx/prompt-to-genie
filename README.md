@@ -1,6 +1,6 @@
 # Prompt to Genie
 
-A collection of [Databricks Assistant agent skills](https://docs.databricks.com/aws/en/assistant/skills) and [custom instructions](https://docs.databricks.com/aws/en/notebooks/assistant-tips#customize-assistant-responses-by-adding-instructions) that enable you to create and manage [AI/BI Genie](https://docs.databricks.com/aws/en/genie/index.html) spaces using natural language — directly from the Databricks Assistant in agent mode.
+Leveraging [Databricks Assistant agent skills](https://docs.databricks.com/aws/en/assistant/skills) and [custom instructions](https://docs.databricks.com/aws/en/notebooks/assistant-tips#customize-assistant-responses-by-adding-instructions) that enable you to create and manage [AI/BI Genie](https://docs.databricks.com/aws/en/genie/index.html) spaces using natural language — directly from the Databricks Assistant in agent mode.
 
 Instead of manually configuring Genie spaces through the UI or writing raw API calls, simply describe what you want in plain English and let the Assistant handle the rest.
 
