@@ -41,6 +41,7 @@ Ask the user about:
 - [ ] **Purpose**: What specific business questions should this space answer? Be narrow and focused.
 - [ ] **Audience**: Who will use this space? (analysts, executives, etc.) Ideally, a domain expert who understands both the data and the business insights should help define the space.
 - [ ] **Data Domain**: What single area does the data cover? (sales, finance, operations, etc.)
+- [ ] **Key metrics, filters, and dimensions**: What business terms do users frequently reference? (e.g., "total revenue", "active customer", "fiscal quarter") These will become SQL expressions.
 - [ ] **Scope**: Start small — aim for a minimal setup with essential tables and basic instructions. It's easier to add more later than to debug an overly complex space.
 
 **Example prompt:**
@@ -170,6 +171,11 @@ Use SQL expressions to define frequently used business terms as reusable definit
 - Metrics: gross margin, conversion rate, revenue
 - Filters: "active customer", "recent order", "high-value account"
 - Dimensions: fiscal quarter, product category groupings
+
+**Ask the user:**
+> "What key metrics, filters, or grouping dimensions do your users frequently reference? For example: 'total revenue' (measure), 'high-value order' (filter), 'fiscal quarter' (dimension). I'll define these as SQL expressions so Genie handles them accurately."
+
+If the user isn't sure, infer SQL expressions from the table metadata — look at column names and types to suggest common measures (SUM, AVG on numeric columns), filters (status/flag columns), and dimensions (date parts, category columns).
 
 **Important:** Always include SQL expressions in the `instructions.sql_snippets` section of the config. Do not just describe them — they must be in the JSON to take effect.
 
@@ -616,6 +622,7 @@ Before creating the space, verify:
 - [ ] Warehouse ID is valid and is a serverless SQL warehouse
 - [ ] Parent path exists in workspace
 - [ ] Sample questions are business-friendly and cover common use cases
+- [ ] **SQL expressions** (`sql_snippets`) are defined for key metrics, filters, and dimensions
 - [ ] **Example SQL queries** are included for complex or multi-step questions
 - [ ] **All example SQL queries have been executed** and return valid results (no errors, non-empty)
 - [ ] **Text instructions** are concise, specific, and non-conflicting
