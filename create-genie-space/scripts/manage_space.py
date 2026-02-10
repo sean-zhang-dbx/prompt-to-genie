@@ -100,5 +100,6 @@ if total_instructions > 80:
 # )
 #
 # print(f"Successfully updated Genie space!")
+# host = w.config.host.rstrip("/")
 # print(f"  Space ID: {space_id}")
-# print(f"  URL: {w.config.host}/genie/rooms/{space_id}")
+# print(f"  URL: {host}/genie/rooms/{space_id}")

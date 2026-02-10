@@ -149,12 +149,29 @@ Instructions help Genie accurately interpret business questions and generate cor
 
 ### 4a: SQL Expressions (Recommended First)
 
-Use SQL expressions to define frequently used business terms as reusable definitions. These are the most efficient way to teach Genie your business logic.
+Use SQL expressions to define frequently used business terms as reusable definitions. These are the most efficient way to teach Genie your business logic. SQL expressions are stored in `instructions.sql_snippets` in the configuration.
+
+**Three types of SQL expressions:**
+
+- **Measures** (`sql_snippets.measures`): KPIs and aggregation metrics
+  ```json
+  {"id": "...", "alias": "total_revenue", "sql": ["SUM(amount)"]}
+  ```
+- **Filters** (`sql_snippets.filters`): Common filtering conditions (boolean)
+  ```json
+  {"id": "...", "display_name": "high value", "sql": ["amount > 1000"]}
+  ```
+- **Dimensions** (`sql_snippets.expressions`): Attributes for grouping and analysis
+  ```json
+  {"id": "...", "alias": "order_year", "sql": ["YEAR(order_date)"]}
+  ```
 
 **Good candidates for SQL expressions:**
 - Metrics: gross margin, conversion rate, revenue
 - Filters: "active customer", "recent order", "high-value account"
 - Dimensions: fiscal quarter, product category groupings
+
+**Important:** Always include SQL expressions in the `instructions.sql_snippets` section of the config. Do not just describe them — they must be in the JSON to take effect.
 
 ### 4b: Example SQL Queries (Recommended for Complex Questions)
 
@@ -165,17 +182,13 @@ Use complete example SQL queries for hard-to-interpret, multi-part, or complex q
 - Multi-step calculations (e.g., "For customers who joined recently, what products are doing best?")
 - Domain-specific aggregations or breakdowns (e.g., "breakdown my team's performance")
 
-**Include multiple phrasings** for each example to help Genie match variations.
+**Use one question per SQL entry.** Each example SQL query should map to exactly one natural language question. If you want to cover multiple phrasings of the same question, create separate entries — each with its own question string and the same SQL.
 
-**Critical formatting rule:** Each phrasing must be a **separate string element** in the array. Never concatenate multiple phrasings into one string.
+**Critical formatting rule for `sql`:** Each SQL clause should be a **separate string element** in the array with `\n` at the end. Never concatenate SQL clauses into one string.
 
 ```json
 {
-  "question": [
-    "What are total sales by product category?",
-    "Show me sales broken down by category",
-    "Sales by category"
-  ],
+  "question": ["What are total sales by product category?"],
   "sql": [
     "SELECT\n",
     "  p.category,\n",
@@ -319,7 +332,7 @@ If the user doesn't know their warehouse ID or workspace URL, help them discover
 
 ## Step 5: Generate Configuration
 
-Build the `serialized_space` JSON with all gathered information:
+Build the `serialized_space` JSON with all gathered information. Below is the complete structure — include only the sections that are relevant to the user's space:
 
 ```json
 {
@@ -328,24 +341,65 @@ Build the `serialized_space` JSON with all gathered information:
     "sample_questions": [
       {
         "id": "a1b2c3d4e5f60000000000000000000a",
-        "question": ["<sample question text>"]
+        "question": ["What were total sales last month?"]
       }
     ]
   },
   "data_sources": {
     "tables": [
-      {"identifier": "catalog.schema.table1"},
+      {"identifier": "catalog.schema.table1", "description": ["Description of table1"]},
       {"identifier": "catalog.schema.table2"}
+    ],
+    "metric_views": [
+      {"identifier": "catalog.schema.metric_view1", "description": ["Revenue metrics"]}
     ]
   },
   "instructions": {
     "text_instructions": [
       {
         "id": "b2c3d4e5f6a70000000000000000000b",
-        "content": [
-          "<instruction text line 1>",
-          "<instruction text line 2>"
-        ]
+        "content": ["General instructions for the space."]
+      }
+    ],
+    "example_question_sqls": [
+      {
+        "id": "c3d4e5f6a7b80000000000000000000c",
+        "question": ["Show top 10 customers by revenue"],
+        "sql": ["SELECT\n", "  customer_name,\n", "  SUM(amount) as total\n", "FROM catalog.schema.orders\n", "GROUP BY customer_name\n", "ORDER BY total DESC\n", "LIMIT 10"]
+      }
+    ],
+    "sql_functions": [
+      {
+        "id": "d4e5f6a7b8c90000000000000000000d",
+        "identifier": "catalog.schema.fiscal_quarter"
+      }
+    ],
+    "join_specs": [
+      {
+        "id": "e5f6a7b8c9d00000000000000000000e",
+        "left": {"identifier": "catalog.schema.orders"},
+        "right": {"identifier": "catalog.schema.customers"},
+        "sql": ["orders.customer_id = customers.customer_id"]
+      }
+    ],
+    "sql_snippets": {
+      "filters": [
+        {"id": "f6a7b8c9d0e10000000000000000000f", "sql": ["amount > 1000"], "display_name": "high value"}
+      ],
+      "expressions": [
+        {"id": "a7b8c9d0e1f20000000000000000000a", "alias": "order_year", "sql": ["YEAR(order_date)"]}
+      ],
+      "measures": [
+        {"id": "b8c9d0e1f2a30000000000000000000b", "alias": "total_revenue", "sql": ["SUM(amount)"]}
+      ]
+    }
+  },
+  "benchmarks": {
+    "questions": [
+      {
+        "id": "c9d0e1f2a3b40000000000000000000c",
+        "question": ["What is average order value?"],
+        "answer": [{"format": "SQL", "content": ["SELECT AVG(amount) FROM catalog.schema.orders"]}]
       }
     ]
   }
@@ -353,18 +407,31 @@ Build the `serialized_space` JSON with all gathered information:
 ```
 
 
+**Field Reference:**
+
+| Section | Field | Description |
+|---------|-------|-------------|
+| `config.sample_questions[]` | `id`, `question` | Starter questions shown to users. One question per entry. |
+| `data_sources.tables[]` | `identifier`, `description` (optional) | Unity Catalog tables. `description` is a space-scoped override (array of strings). |
+| `data_sources.metric_views[]` | `identifier`, `description` (optional) | Metric views with pre-defined metrics, dimensions, and aggregations. |
+| `instructions.text_instructions[]` | `id`, `content` | General guidance (max 1 per space). `content` is an array of strings. |
+| `instructions.example_question_sqls[]` | `id`, `question`, `sql` | Example SQL queries. One question per entry. `sql` is an array of line strings with `\n`. |
+| `instructions.sql_functions[]` | `id`, `identifier` | Unity Catalog UDFs referenced by their full path. |
+| `instructions.join_specs[]` | `id`, `left`, `right`, `sql` | Join relationships between tables. `sql` is the join condition. |
+| `instructions.sql_snippets.filters[]` | `id`, `sql`, `display_name` | Filter definitions (boolean conditions). |
+| `instructions.sql_snippets.expressions[]` | `id`, `sql`, `alias` | Dimension definitions (grouping attributes). |
+| `instructions.sql_snippets.measures[]` | `id`, `sql`, `alias` | Measure definitions (aggregation KPIs). |
+| `benchmarks.questions[]` | `id`, `question`, `answer` | Benchmark questions with SQL ground truth. |
+
 **Important Notes:**
-- `version`: **Required**. Use `2` for new spaces (version 1 exists for backwards compatibility only)
-- `question`: Must be an array of strings. **Each phrasing must be a separate element** — never concatenate multiple phrasings into one string:
-  - Correct: `["What were total sales last month?", "Show me last month's sales", "Total sales for previous month"]`
-  - Wrong: `["What were total sales last month?Show me last month's salesTotal sales for previous month"]`
-- `sql`: Must be an array of strings. **Each SQL clause should be a separate element** with `\n` at the end:
+- `version`: **Required**. Use `2` for new spaces
+- `question`: Must be an array with a **single question string** per entry
+- `sql` (in `example_question_sqls`): Must be an array of strings. **Each SQL clause should be a separate element** with `\n` at the end:
   - Correct: `["SELECT\n", "  col1,\n", "  col2\n", "FROM table\n", "WHERE col1 > 0"]`
   - Wrong: `["SELECT col1, col2FROM tableWHERE col1 > 0"]`
-- `instructions`: Optional structured object containing:
-  - `text_instructions`: Array of instruction objects (maximum 1 text instruction per space), each with a unique 32-char hex `id` and `content` array of strings
-  - Can also include `example_question_sqls`, `join_specs`, `sql_snippets`, `sql_functions`, and other advanced configurations
 - **ID Format**: All IDs must be exactly 32 lowercase hexadecimal characters (no hyphens)
+- **Sorting**: All arrays of objects with `id` fields must be sorted alphabetically by `id`. Tables must be sorted by `identifier`.
+- **Include only what's needed**: Omit sections that don't apply (e.g., skip `metric_views` if none, skip `benchmarks` if not creating them yet)
 
 
 ### ID Generation
@@ -432,6 +499,15 @@ For each `example_question_sqls` entry in the configuration:
 ### Python Example
 
 **Reference script:** See `scripts/create_space.py` for the complete template. Adapt the tables, sample questions, instructions, and parameters to match the user's requirements.
+
+**After creating the space**, always display a clickable link to the user using this format:
+
+```
+https://<workspace-url>/genie/rooms/<space_id>
+```
+
+Get the workspace URL from `w.config.host` (strip trailing slash) and the space ID from the API response. Example:
+`https://adb-984752964297111.11.azuredatabricks.net/genie/rooms/01f0d5be61091b6ea75a6e8438c3bce2`
 
 
 **Authentication Notes:**
@@ -779,22 +855,25 @@ If you are adding or changing `example_question_sqls`, **execute each new/modifi
 
 **Reference script:** See `scripts/manage_space.py` (Part 2) for the complete update code. It shows how to add example SQL queries, sort all ID-based collections, and call the PATCH API.
 
+**After updating the space**, display the link to the user:
+
+```
+https://<workspace-url>/genie/rooms/<space_id>
+```
+
 
 ### Example SQL Query Format
 
 When adding `example_question_sqls`, each example should include:
 
 - `id`: Unique 32-character hex ID
-- `question`: Array of natural language phrasings
+- `question`: Array with a single natural language question string
 - `sql`: Array of strings representing the SQL query (split by lines)
 
 ```json
 {
   "id": "c3d4e5f6a7b80000000000000000000c",
-  "question": [
-    "What are total sales by product category?",
-    "Show me sales broken down by category"
-  ],
+  "question": ["What are total sales by product category?"],
   "sql": [
     "SELECT\n",
     "  p.category,\n",

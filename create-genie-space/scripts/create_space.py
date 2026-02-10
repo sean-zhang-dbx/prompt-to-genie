@@ -18,12 +18,18 @@ w = WorkspaceClient()
 # --- CONFIGURE THESE VALUES ---
 
 # Tables to include (sorted alphabetically by identifier)
+# Optional "description" field overrides the Unity Catalog description for this space only
 tables = sorted([
-    {"identifier": "catalog.schema.table1"},
+    {"identifier": "catalog.schema.table1", "description": ["Description of table1"]},
     {"identifier": "catalog.schema.table2"},
 ], key=lambda x: x["identifier"])
 
-# Sample questions for business users
+# Metric views (optional) — pre-defined metrics, dimensions, and aggregations
+# metric_views = sorted([
+#     {"identifier": "catalog.schema.metric_view1", "description": ["Revenue metrics"]},
+# ], key=lambda x: x["identifier"])
+
+# Sample questions for business users (one question per entry)
 sample_questions_text = [
     "What were total sales last month?",
     "Show me top 10 products by revenue",
@@ -35,7 +41,7 @@ text_instruction_lines = [
     "Fiscal year starts April 1st.",
 ]
 
-# Example SQL queries (for complex questions)
+# Example SQL queries (one question per SQL entry)
 example_sqls = [
     {
         "question": ["What are total sales by product category?"],
@@ -51,6 +57,31 @@ example_sqls = [
     },
 ]
 
+# SQL expressions — measures, filters, dimensions
+sql_snippet_measures = [
+    {"alias": "total_revenue", "sql": ["SUM(amount)"]},
+]
+sql_snippet_filters = [
+    {"display_name": "high value", "sql": ["amount > 1000"]},
+]
+sql_snippet_expressions = [
+    {"alias": "order_year", "sql": ["YEAR(order_date)"]},
+]
+
+# Join specifications (optional)
+# join_specs = [
+#     {
+#         "left": {"identifier": "catalog.schema.orders"},
+#         "right": {"identifier": "catalog.schema.customers"},
+#         "sql": ["orders.customer_id = customers.customer_id"],
+#     },
+# ]
+
+# SQL functions (Unity Catalog UDFs, optional)
+# sql_functions = [
+#     {"identifier": "catalog.schema.fiscal_quarter"},
+# ]
+
 # Space metadata
 warehouse_id = "your_serverless_warehouse_id"
 parent_path = "/Users/your.email@company.com"
@@ -64,16 +95,24 @@ question_ids = sorted([secrets.token_hex(16) for _ in sample_questions_text])
 example_sql_ids = sorted([secrets.token_hex(16) for _ in example_sqls])
 instruction_id = secrets.token_hex(16)
 
+# Add IDs to sql_snippets
+for item in sql_snippet_measures + sql_snippet_filters + sql_snippet_expressions:
+    item["id"] = secrets.token_hex(16)
+
 config = {
     "version": 2,
     "config": {
-        "sample_questions": [
-            {"id": question_ids[i], "question": [sample_questions_text[i]]}
-            for i in range(len(sample_questions_text))
-        ]
+        "sample_questions": sorted(
+            [
+                {"id": question_ids[i], "question": [sample_questions_text[i]]}
+                for i in range(len(sample_questions_text))
+            ],
+            key=lambda x: x["id"],
+        )
     },
     "data_sources": {
-        "tables": tables
+        "tables": tables,
+        # "metric_views": metric_views,  # Uncomment if using metric views
     },
     "instructions": {
         "text_instructions": [
@@ -82,14 +121,30 @@ config = {
                 "content": text_instruction_lines,
             }
         ],
-        "example_question_sqls": [
-            {
-                "id": example_sql_ids[i],
-                "question": example_sqls[i]["question"],
-                "sql": example_sqls[i]["sql"],
-            }
-            for i in range(len(example_sqls))
-        ],
+        "example_question_sqls": sorted(
+            [
+                {
+                    "id": example_sql_ids[i],
+                    "question": example_sqls[i]["question"],
+                    "sql": example_sqls[i]["sql"],
+                }
+                for i in range(len(example_sqls))
+            ],
+            key=lambda x: x["id"],
+        ),
+        "sql_snippets": {
+            "measures": sorted(sql_snippet_measures, key=lambda x: x["id"]),
+            "filters": sorted(sql_snippet_filters, key=lambda x: x["id"]),
+            "expressions": sorted(sql_snippet_expressions, key=lambda x: x["id"]),
+        },
+        # "join_specs": sorted(
+        #     [{"id": secrets.token_hex(16), **js} for js in join_specs],
+        #     key=lambda x: x["id"],
+        # ),
+        # "sql_functions": sorted(
+        #     [{"id": secrets.token_hex(16), **sf} for sf in sql_functions],
+        #     key=lambda x: x["id"],
+        # ),
     },
 }
 
@@ -108,6 +163,7 @@ response = w.api_client.do(
 )
 
 space_id = response.get("space_id")
+host = w.config.host.rstrip("/")
 print(f"Successfully created Genie space!")
 print(f"  Space ID: {space_id}")
-print(f"  URL: {w.config.host}/genie/rooms/{space_id}")
+print(f"  URL: {host}/genie/rooms/{space_id}")

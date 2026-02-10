@@ -286,6 +286,13 @@ def validate_config(config: dict) -> list[dict]:
                 sql = sn.get("sql")
                 if sql is None or (isinstance(sql, list) and len(sql) == 0):
                     error(f"{p}.sql", "SQL field must not be empty")
+                # Check for required name/alias fields
+                if snippet_type == "filters":
+                    if not sn.get("display_name"):
+                        warning(f"{p}.display_name", "Missing 'display_name' field — filters should have a display name")
+                elif snippet_type in ("expressions", "measures"):
+                    if not sn.get("alias"):
+                        warning(f"{p}.alias", "Missing 'alias' field — expressions and measures should have an alias")
 
     # --- benchmarks ---
     benchmarks = config.get("benchmarks", {})
@@ -353,24 +360,30 @@ def validate_config(config: dict) -> list[dict]:
         # Multiple ? in a single string = likely concatenated phrasings
         q_marks = q_str.count("?")
         if q_marks > 1:
-            error(path, f"String contains {q_marks} question marks — likely multiple phrasings concatenated into one string. Split into separate array elements.")
+            error(path, f"String contains {q_marks} question marks — likely multiple questions concatenated into one string. Split into separate entries, each with one question.")
             return
         # Detect sentences jammed together: "...level?Show" or "...groupsCompare"
         # Pattern: lowercase/punctuation immediately followed by uppercase (no space)
         jammed_sentences = re.findall(r'[a-z?.!]([A-Z][a-z])', q_str)
         if jammed_sentences:
-            error(path, f"String appears to have multiple sentences concatenated without spaces (e.g., '...{q_str[max(0,q_str.find(jammed_sentences[0])-5):q_str.find(jammed_sentences[0])+10]}...'). Each phrasing must be a separate array element.")
+            error(path, f"String appears to have multiple sentences concatenated without spaces (e.g., '...{q_str[max(0,q_str.find(jammed_sentences[0])-5):q_str.find(jammed_sentences[0])+10]}...'). Split into separate entries, each with one question.")
             return
         # Very long single question without punctuation
         if len(q_str) > 200 and "?" not in q_str:
             warning(path, f"Very long question string ({len(q_str)} chars) without a question mark — check formatting")
 
     for i, sq in enumerate(sample_questions):
-        for j, q_str in enumerate(sq.get("question", [])):
+        q_list = sq.get("question", [])
+        if len(q_list) > 1:
+            warning(f"config.sample_questions[{i}].question", f"Has {len(q_list)} phrasings — use one question per entry. Create separate entries for alternate phrasings.")
+        for j, q_str in enumerate(q_list):
             check_question_formatting(q_str, f"config.sample_questions[{i}].question[{j}]")
 
     for i, eq in enumerate(example_sqls):
-        for j, q_str in enumerate(eq.get("question", [])):
+        q_list = eq.get("question", [])
+        if len(q_list) > 1:
+            warning(f"instructions.example_question_sqls[{i}].question", f"Has {len(q_list)} phrasings — use one question per SQL entry. Create separate entries for alternate phrasings.")
+        for j, q_str in enumerate(q_list):
             check_question_formatting(q_str, f"instructions.example_question_sqls[{i}].question[{j}]")
 
     # --- SQL formatting checks ---
@@ -511,23 +524,33 @@ else:
 
     # Summary counts
     tables = config.get("data_sources", {}).get("tables", [])
+    metric_views = config.get("data_sources", {}).get("metric_views", [])
     instructions = config.get("instructions", {})
     example_sqls = instructions.get("example_question_sqls", [])
     text_instr = instructions.get("text_instructions", [])
     sql_functions = instructions.get("sql_functions", [])
     join_specs = instructions.get("join_specs", [])
     snippets = instructions.get("sql_snippets", {})
+    snippet_measures = snippets.get("measures", [])
+    snippet_filters = snippets.get("filters", [])
+    snippet_expressions = snippets.get("expressions", [])
     sample_qs = config.get("config", {}).get("sample_questions", [])
     bench_qs = config.get("benchmarks", {}).get("questions", [])
 
     print(f"\n  Version: {config.get('version', 'MISSING')}")
     print(f"  Tables: {len(tables)}")
+    if metric_views:
+        print(f"  Metric views: {len(metric_views)}")
     print(f"  Sample questions: {len(sample_qs)}")
     print(f"  Text instructions: {len(text_instr)}")
     print(f"  Example SQL queries: {len(example_sqls)}")
     print(f"  SQL functions: {len(sql_functions)}")
     print(f"  Join specs: {len(join_specs)}")
-    print(f"  SQL snippets: {sum(len(snippets.get(t, [])) for t in ('filters', 'expressions', 'measures'))}")
+    total_snippets = len(snippet_measures) + len(snippet_filters) + len(snippet_expressions)
+    if total_snippets:
+        print(f"  SQL expressions: {total_snippets} (measures: {len(snippet_measures)}, filters: {len(snippet_filters)}, dimensions: {len(snippet_expressions)})")
+    else:
+        print(f"  SQL expressions: 0")
     print(f"  Benchmarks: {len(bench_qs)}")
     total_instr = len(example_sqls) + len(sql_functions) + (1 if text_instr else 0)
     print(f"  Instruction budget: {total_instr}/100")
