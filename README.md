@@ -10,7 +10,12 @@ Instead of manually configuring Genie spaces through the UI or writing raw API c
 prompt-to-genie/
 ├── .assistant_instructions.md              # Custom user instructions for the Assistant
 ├── create-genie-space/
-│   └── SKILL.MD                            # Skill: Create & update Genie spaces via conversation
+│   ├── SKILL.MD                            # Skill: Create & manage Genie spaces via conversation
+│   └── scripts/
+│       ├── discover_resources.py           # List warehouses + audit table metadata quality
+│       ├── validate_config.py              # Validate serialized_space JSON before API calls
+│       ├── create_space.py                 # Template: create a new Genie space via API
+│       └── manage_space.py                 # Retrieve, summarize, and update an existing space
 └── examples/
     ├── conversation_history.md             # Full example conversation with the Assistant
     └── prompt_to_genie output.ipynb        # Generated notebook output from a real session
@@ -18,15 +23,24 @@ prompt-to-genie/
 
 ### `create-genie-space` Skill
 
-A step-by-step conversational skill that guides you through:
+A conversational skill with two modes:
 
+**Create a New Space:**
 1. **Gathering requirements** — purpose, audience, and data domain
 2. **Identifying data sources** — Unity Catalog tables to include
 3. **Defining sample questions** — business-friendly starter questions for end users
-4. **Configuring instructions** — domain-specific rules, terminology, and calculation logic
+4. **Configuring instructions** — SQL expressions, example SQL queries, parameterized queries, UDFs, and text instructions
 5. **Discovering resources** — finding serverless SQL warehouses and workspace URLs
 6. **Creating the space** — generating the `serialized_space` JSON and calling the Genie API
-7. **Updating the space** — modifying tables, questions, instructions, or example SQL queries on an existing space
+7. **Testing and iterating** — self-testing, benchmarking, user testing, and monitoring
+
+**Manage an Existing Space:**
+1. **Retrieving configuration** — fetch and parse the current space setup
+2. **Auditing against best practices** — evaluate tables, instructions, and metadata quality
+3. **Diagnosing issues** — triage specific problems (wrong columns, bad joins, metric errors, etc.)
+4. **Recommending optimizations** — suggest parameterized queries, SQL expressions, column cleanup, and more
+5. **Applying updates** — modify configuration via the API
+6. **Benchmarking** — verify improvements with systematic accuracy testing
 
 ### `.assistant_instructions.md`
 
@@ -88,11 +102,17 @@ For a full end-to-end walkthrough, see the [`examples/`](examples/) directory �
 >
 > **Assistant:** Gathers details about your use case, suggests sample questions, discovers your warehouse, and creates the space via the API.
 
-### Update an Existing Space
+### Audit an Existing Space
 
-> **You:** "Add example SQL queries to my Sales Analytics Genie space to help it understand complex joins."
+> **You:** "Can you review my Sales Analytics Genie space and tell me what I should improve?"
 >
-> **Assistant:** Retrieves the current configuration, adds the example queries, and updates the space.
+> **Assistant:** Retrieves the configuration, audits it against best practices, and provides a prioritized list of recommendations (e.g., add parameterized queries, improve column descriptions, reduce table count).
+
+### Diagnose Issues
+
+> **You:** "My Genie space keeps giving wrong answers when users ask about revenue by region."
+>
+> **Assistant:** Walks through a diagnostic flow — checks column metadata, instructions, example SQL, and join definitions — then identifies the root cause and applies fixes.
 
 ### Explore Your Data First
 
@@ -126,7 +146,7 @@ The skill uses the following Databricks REST APIs under the hood:
 |-----------|--------|----------|
 | List SQL warehouses | `GET` | `/api/2.0/sql/warehouses` |
 | Create Genie space | `POST` | `/api/2.0/genie/spaces` |
-| Get Genie space | `GET` | `/api/2.0/genie/spaces/{space_id}` |
+| Get Genie space | `GET` | `/api/2.0/genie/spaces/{space_id}?include_serialized_space=true` |
 | Update Genie space | `PATCH` | `/api/2.0/genie/spaces/{space_id}` |
 
 For full API documentation, see:

@@ -1,22 +1,36 @@
 ---
 name: create-genie-space
-description: Guide users through creating Databricks AI/BI Genie spaces using natural language. Helps gather requirements, configure data sources, define sample questions, and generate the space configuration. Use when the user wants to create, build, or set up a new Genie space, or asks about configuring AI/BI dashboards.
+description: Guide users through creating and managing Databricks AI/BI Genie spaces using natural language. Helps gather requirements, configure data sources, define sample questions, generate the space configuration, and manage existing spaces by auditing, diagnosing issues, and optimizing configuration. Use when the user wants to create, build, set up, update, audit, troubleshoot, or optimize a Genie space.
 ---
 
-# Create Genie Space
+# Create and Manage Genie Spaces
 
-Guide users through creating a Databricks AI/BI Genie space by gathering requirements conversationally and generating the proper configuration.
+Guide users through creating new Databricks AI/BI Genie spaces or managing existing ones — auditing configuration, diagnosing issues, and optimizing for accuracy.
+
+**Determine intent first:** If the user wants to create a new space, follow the **Create a New Space** workflow. If they have an existing space they want to review, fix, or improve, follow the **Manage an Existing Space** workflow.
 
 ## Workflow Overview
 
+### Create a New Space
 1. **Gather Requirements** - Define purpose, audience, and scope (start small)
 2. **Identify Data Sources** - Select focused Unity Catalog tables (aim for ≤5)
 3. **Define Sample Questions** - Create starter questions for business users
 4. **Configure Instructions** - Prioritize SQL expressions > example SQL > text instructions
 5. **Generate Configuration** - Build the serialized_space JSON
 6. **Create the Space** - Call the Genie API to create the space
-7. **Update the Space (Optional)** - Modify existing space configuration based on user requests
-8. **Test and Iterate** - Self-test, gather feedback, and refine continuously
+7. **Test and Iterate** - Self-test, benchmark, gather feedback, and refine
+
+### Manage an Existing Space
+1. **Retrieve Current Configuration** - Fetch and parse the space's serialized_space JSON
+2. **Audit Against Best Practices** - Evaluate tables, instructions, and metadata quality
+3. **Diagnose Reported Issues** - Triage specific problems users are experiencing
+4. **Recommend Optimizations** - Suggest proactive improvements
+5. **Apply Updates** - Modify configuration via the PATCH API
+6. **Benchmark and Verify** - Run benchmarks to confirm improvements
+
+---
+
+# Create a New Space
 
 ## Step 1: Gather Requirements
 
@@ -80,6 +94,8 @@ DESCRIBE TABLE EXTENDED catalog.schema.table_name;
 
 
 If column descriptions are missing or unclear, suggest the user add them in Unity Catalog first — this significantly improves Genie's response accuracy.
+
+**Reference script:** See `scripts/discover_resources.py` (Part 2) for a comprehensive audit that checks table comments, column descriptions, column counts, foreign keys, and generates a Genie-readiness quality score with specific recommendations.
 
 ### Define Table Relationships
 
@@ -278,41 +294,11 @@ Keep this budget in mind when adding instructions — prioritize quality over qu
 
 ## Step 4.5: Discover Available Resources
 
-### Find SQL Warehouses
+If the user doesn't know their warehouse ID or workspace URL, help them discover available resources.
 
-If the user doesn't know their warehouse ID, help them discover available serverless warehouses:
+**Reference script:** See `scripts/discover_resources.py` for the complete code. Part 1 lists all serverless SQL warehouses (name, ID, state, size) and prints the workspace URL. Part 2 audits table metadata quality for Genie-readiness.
 
-python
-import requests
-
-# Get workspace URL
-workspace_url = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiUrl().get()
-
-# Get authentication token
-token = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()
-
-# List SQL warehouses
-response = requests.get(
-    f"{workspace_url}/api/2.0/sql/warehouses",
-    headers={"Authorization": f"Bearer {token}"}
-)
-
-warehouses = response.json().get("warehouses", [])
-for wh in warehouses:
-    # Filter for serverless warehouses only (required for Genie)
-    if wh.get("enable_serverless_compute", False):
-        print(f"Name: {wh['name']}, ID: {wh['id']}, State: {wh['state']}")
-
-
-**Important:** Serverless SQL warehouses are required for Genie spaces. The code above filters to show only serverless warehouses.
-
-### Get Workspace URL
-
-The workspace URL can be obtained programmatically:
-
-python
-workspace_url = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiUrl().get()
-print(f"Workspace URL: {workspace_url}")
+**Important:** Genie spaces require a **serverless** SQL warehouse (pro warehouses also work). The script filters to show only serverless warehouses.
 
 
 ## Step 5: Generate Configuration
@@ -399,84 +385,22 @@ POST https://<workspace-url>/api/2.0/genie/spaces
 }
 
 
+### Validate Before Creating
+
+**Reference script:** Run `scripts/validate_config.py` on the generated config **before** calling the API. It checks:
+- **Errors**: ID format, sorting, uniqueness, required fields, limits, concatenated questions, malformed SQL
+- **Warnings**: Table count, instruction budget, formatting issues
+- **Parameterization suggestions**: Detects similar queries that could be consolidated into parameterized queries, and flags hardcoded filter values that should use `:parameter` syntax
+
 ### Python Example
-python
-import json
-import requests
-import secrets
 
-# Get authentication credentials
-workspace_url = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiUrl().get()
-token = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()
-
-# Generate unique 32-character hex IDs for sample questions and instructions
-question_id_1 = secrets.token_hex(16)  # 32 chars
-question_id_2 = secrets.token_hex(16)  # 32 chars
-instruction_id = secrets.token_hex(16)  # 32 chars
-
-# Sort IDs alphabetically (required by API)
-question_ids = sorted([
-    (question_id_1, "What were total sales last month?"),
-    (question_id_2, "Show me top 10 products by revenue")
-])
-
-# Build configuration
-config = {
-    "version": 2,  # Use version 2 for new spaces
-    "config": {
-        "sample_questions": [
-            {"id": question_ids[0][0], "question": [question_ids[0][1]]},
-            {"id": question_ids[1][0], "question": [question_ids[1][1]]}
-        ]
-    },
-    "data_sources": {
-        "tables": [
-            {"identifier": "sales.gold.customers"},  # Sorted alphabetically
-            {"identifier": "sales.gold.orders"}
-        ]
-    },
-    "instructions": {
-        "text_instructions": [
-            {
-                "id": instruction_id,
-                "content": [
-                    "Revenue = quantity * unit_price. ",
-                    "Fiscal year starts April 1st."
-                ]
-            }
-        ]
-    }
-}
-
-# Create the Genie space
-response = requests.post(
-    f"{workspace_url}/api/2.0/genie/spaces",
-    headers={"Authorization": f"Bearer {token}"},
-    json={
-        "serialized_space": json.dumps(config),
-        "warehouse_id": "your_serverless_warehouse_id",  # Must be a serverless warehouse
-        "parent_path": "/Users/your.email@company.com",  # Must exist in workspace
-        "title": "Sales Analytics",
-        "description": "Analyze sales performance and customer trends"
-    }
-)
-
-# Handle response
-if response.status_code == 200:
-    space_data = response.json()
-    space_id = space_data.get("space_id")
-    print(f"✓ Successfully created Genie space!")
-    print(f"  Space ID: {space_id}")
-    print(f"  URL: {workspace_url}/genie/rooms/{space_id}")
-else:
-    print(f"✗ Failed to create space: {response.status_code}")
-    print(f"  Error: {response.text}")
+**Reference script:** See `scripts/create_space.py` for the complete template. Adapt the tables, sample questions, instructions, and parameters to match the user's requirements.
 
 
 **Authentication Notes:**
-- `workspace_url`: Automatically retrieved from notebook context (e.g., `https://adb-1234567890.11.azuredatabricks.net`)
-- `token`: Automatically retrieved from notebook context (uses your current session)
-- For scripts outside notebooks, use a Personal Access Token from User Settings → Developer → Access Tokens
+- All scripts use `WorkspaceClient()` from the Databricks SDK (`databricks-sdk`), which auto-authenticates in notebook context
+- API calls use `w.api_client.do()` for Genie endpoints and typed methods (e.g., `w.warehouses.list()`) where available
+- For scripts outside notebooks, `WorkspaceClient` supports Personal Access Tokens, OAuth, and other authentication methods via environment variables or `~/.databrickscfg`
 
 **Compute and Sharing Notes:**
 - Genie spaces require a **pro or serverless** SQL warehouse (serverless recommended for performance)
@@ -486,159 +410,7 @@ else:
 - Each workspace supports up to **20 questions/minute** across all Genie spaces (UI), or **5 questions/minute** via API free tier
 - Each space supports up to **10,000 conversations**, each with up to **10,000 messages**
 
-## Step 7: Update the Space (Optional)
-
-After creating a Genie space, you can update its configuration based on user requests. Common updates include:
-
-- Adding or removing tables from data sources
-- Adding new sample questions
-- Adding example SQL queries to guide Genie's query generation
-- Updating instructions with new business rules
-- Modifying the space title or description
-
-### When to Update
-
-Use the update API when users request changes like:
-- "Add example SQL queries to help Genie understand complex joins"
-- "Include the products table in the space"
-- "Add more sample questions about customer retention"
-- "Update the instructions to clarify our revenue calculation"
-
-### Get Current Space Configuration
-
-First, retrieve the existing space configuration to modify:
-
-python
-import requests
-import json
-
-# Get authentication credentials
-workspace_url = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiUrl().get()
-token = dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiToken().get()
-
-# Get space details
-space_id = "your_space_id"
-response = requests.get(
-    f"{workspace_url}/api/2.0/genie/spaces/{space_id}",
-    headers={"Authorization": f"Bearer {token}"}
-)
-
-if response.status_code == 200:
-    space_data = response.json()
-    current_config = json.loads(space_data.get("serialized_space", "{}"))
-    print("Current configuration retrieved successfully")
-else:
-    print(f"Failed to get space: {response.status_code}")
-    print(response.text)
-
-
-### Update Space Configuration
-
-Modify the configuration and send an update request:
-
-python
-import json
-import requests
-import secrets
-
-# Modify the configuration (example: adding example SQL queries)
-current_config["instructions"] = current_config.get("instructions", {})
-
-# Add example_question_sqls to instructions
-example_sql_id = secrets.token_hex(16)
-current_config["instructions"]["example_question_sqls"] = [
-    {
-        "id": example_sql_id,
-        "question": ["What are total sales by product category?"],
-        "sql": [
-            "SELECT ",
-            "  p.category,",
-            "  SUM(o.quantity * o.unit_price) as total_sales",
-            "FROM sales.gold.orders o",
-            "JOIN sales.gold.products p ON o.product_id = p.product_id",
-            "GROUP BY p.category",
-            "ORDER BY total_sales DESC"
-        ]
-    }
-]
-
-# Sort all ID-based collections (required)
-if "sample_questions" in current_config.get("config", {}):
-    current_config["config"]["sample_questions"] = sorted(
-        current_config["config"]["sample_questions"],
-        key=lambda x: x["id"]
-    )
-
-if "example_question_sqls" in current_config.get("instructions", {}):
-    current_config["instructions"]["example_question_sqls"] = sorted(
-        current_config["instructions"]["example_question_sqls"],
-        key=lambda x: x["id"]
-    )
-
-# Update the space
-response = requests.patch(
-    f"{workspace_url}/api/2.0/genie/spaces/{space_id}",
-    headers={"Authorization": f"Bearer {token}"},
-    json={
-        "serialized_space": json.dumps(current_config)
-    }
-)
-
-# Handle response
-if response.status_code == 200:
-    print(f"✓ Successfully updated Genie space!")
-    print(f"  Space ID: {space_id}")
-    print(f"  URL: {workspace_url}/genie/rooms/{space_id}")
-else:
-    print(f"✗ Failed to update space: {response.status_code}")
-    print(f"  Error: {response.text}")
-
-
-### Example SQL Query Format
-
-When adding `example_question_sqls` to instructions, each example should include:
-
-- `id`: Unique 32-character hex ID
-- `question`: Array of natural language phrasings
-- `sql`: Array of strings representing the SQL query (split by lines for readability)
-
-json
-{
-  "id": "c3d4e5f6a7b80000000000000000000c",
-  "question": [
-    "What are total sales by product category?",
-    "Show me sales broken down by category"
-  ],
-  "sql": [
-    "SELECT ",
-    "  p.category,",
-    "  SUM(o.quantity * o.unit_price) as total_sales",
-    "FROM sales.gold.orders o",
-    "JOIN sales.gold.products p ON o.product_id = p.product_id",
-    "GROUP BY p.category",
-    "ORDER BY total_sales DESC"
-  ]
-}
-
-
-**Benefits of Example SQL Queries:**
-- Helps Genie understand complex table relationships and joins
-- Demonstrates preferred calculation methods
-- Improves query generation accuracy for similar questions
-- Provides templates for common analytical patterns
-
-### Update API Reference
-
-**Endpoint:** `PATCH /api/2.0/genie/spaces/{space_id}`
-
-**Parameters:**
-- `serialized_space`: Updated JSON configuration (required)
-- `title`: New title (optional)
-- `description`: New description (optional)
-
-**Note:** You cannot change the `warehouse_id` or `parent_path` after creation. To use a different warehouse or location, create a new space.
-
-## Step 8: Test and Iterate
+## Step 7: Test and Iterate
 
 After creating the space, **the curator should be the first user**. Testing and iterating is essential — a Genie space gets better over time with real-world feedback.
 
@@ -830,6 +602,179 @@ If users report problems with their Genie space after creation, use this referen
 - Streamline column descriptions — don't duplicate info already conveyed by column names
 - Prune overlapping or redundant example SQL queries
 - Simplify text instructions — avoid unnecessary words
+
+---
+
+# Manage an Existing Space
+
+Use this workflow when a user has an existing Genie space and wants to review, fix, or improve it. Ask the user for their **space ID** to get started.
+
+## Step M1: Retrieve Current Configuration
+
+Fetch the existing space configuration and parse it into a human-readable summary.
+
+**Important:** The GET space API does **not** return `serialized_space` by default. You must pass the query parameter `include_serialized_space=true` to include it in the response. This requires at least **CAN EDIT** permission on the space.
+
+**Reference script:** See `scripts/manage_space.py` (Part 1) for the complete retrieval and summary code. It displays all tables, sample questions, example SQL queries, SQL functions, text instructions, and the instruction count audit.
+
+
+After retrieving the config, present the summary to the user and ask what they'd like to do: audit, diagnose a specific issue, or optimize.
+
+## Step M2: Audit Against Best Practices
+
+Work through this checklist automatically after retrieving the configuration. Flag any issues and present findings to the user.
+
+### Data Source Audit
+
+**Reference script:** Use `scripts/discover_resources.py` (Part 2) to automate this audit. It checks all of the following and produces a quality score with actionable recommendations.
+
+- [ ] **Table count**: Are there ≤5 tables? (ideal) Are there ≤25? (maximum)
+- [ ] **Table comments**: Does each table have a descriptive comment?
+- [ ] **Column descriptions**: For each table, check if columns have descriptions. Flag tables with missing or unclear descriptions.
+- [ ] **Column count**: Tables with 30+ columns may cause ambiguity — recommend hiding irrelevant columns or creating focused views.
+- [ ] **Overlapping columns**: Check if multiple tables have columns with similar names that could cause ambiguity. Recommend hiding or removing duplicates.
+- [ ] **Foreign keys / join relationships**: Check if tables have foreign key constraints defined. If not, recommend defining join relationships in the knowledge store.
+
+### Instruction Audit
+- [ ] **Example SQL queries present?** If none exist, strongly recommend adding them — they are the most effective way to improve accuracy.
+- [ ] **Parameterized queries?** If there are example SQL queries but none use parameters, recommend converting recurring filter-based queries to parameterized versions for trusted asset labeling.
+- [ ] **Text instruction quality**: Review text instructions for:
+  - Vagueness (e.g., "handle sales questions appropriately" — flag and suggest specific rewording)
+  - Excessive length (>2000 characters — suggest moving specific metrics to SQL expressions)
+  - Missing clarification question instructions for ambiguous topics
+- [ ] **Instruction consistency**: Check for conflicts between text instructions and example SQL (e.g., different rounding, different date conventions).
+- [ ] **Instruction count**: Calculate total (each SQL query + each function + 1 for text block). Warn if approaching the 100 limit.
+
+### Configuration Audit
+- [ ] **Sample questions**: Are there at least 3? Do they cover the space's stated purpose?
+- [ ] **Description quality**: Is the space description clear and informative?
+- [ ] **Prompt matching**: Remind users to verify that prompt matching is enabled for key filter columns in the UI.
+
+**Present findings** to the user as a prioritized list, starting with the highest-impact improvements.
+
+## Step M3: Diagnose Reported Issues
+
+If the user reports a specific problem, use this decision tree to triage:
+
+**"Genie uses the wrong table or column"**
+1. Check table/column descriptions — do they match user terminology?
+2. Look for overlapping column names across tables
+3. Recommend: Add example SQL queries showing correct usage, hide confusing columns
+
+**"Genie misunderstands our terminology"**
+1. Check if the term is defined in text instructions or SQL expressions
+2. Check column synonyms in the knowledge store
+3. Recommend: Add a SQL expression or text instruction mapping the term to the correct data concept
+
+**"Genie filters on wrong values"** (e.g., "California" vs "CA")
+1. Check if prompt matching is enabled for the relevant column
+2. Check if example values are configured in the knowledge store
+3. Recommend: Enable prompt matching, add value dictionaries, refresh values if data changed
+
+**"Genie joins tables incorrectly"**
+1. Check for foreign key constraints in Unity Catalog
+2. Check join relationships in the knowledge store
+3. Recommend: Define join relationships or add example SQL queries with correct joins
+
+**"Metric calculations are wrong"**
+1. Check if the metric is defined as a SQL expression
+2. Check if there's an example SQL query computing it correctly
+3. Check for pre-aggregated tables that might be double-counted
+4. Recommend: Add SQL expressions for metrics, or example SQL for complex calculations
+
+**"Timezone/date calculations are wrong"**
+1. Check text instructions for timezone guidance
+2. Recommend: Add explicit instructions like "Time zones are in UTC. Convert using convert_timezone('UTC', 'America/Los_Angeles', <column>)."
+
+**"Genie ignores my instructions"**
+1. Check for conflicting instructions across types
+2. Check if the instruction count is high (noise drowns out signal)
+3. Recommend: Add example SQL (most effective), hide irrelevant columns, simplify instruction set, start a new chat for testing
+
+**"Responses are slow or timing out"**
+1. Check query history for slow queries
+2. Recommend: Use trusted assets for complex logic, reduce example SQL length, start new chat
+
+**"Token limit warning"**
+1. Audit column count and descriptions for bloat
+2. Recommend: Hide unnecessary columns, streamline descriptions, prune redundant example SQL
+
+## Step M4: Recommend Optimizations
+
+After auditing the config and/or diagnosing issues, proactively suggest improvements. Frame recommendations as specific, actionable changes with clear rationale.
+
+**Example recommendations:**
+
+- "You have 5 example SQL queries but none use parameters. Consider converting the 2 queries that filter by region to use `:region` parameters — this gives users trusted asset labeling and lets them change the filter value."
+- "Your text instructions are 1800 characters with 6 metric definitions inline. Consider moving those metrics to SQL expressions in the knowledge store — they're more precise and reduce text instruction length."
+- "Tables `orders` and `order_details` both have a `total` column. This likely causes ambiguity. Recommend hiding `order_details.total` or renaming via a view."
+- "No benchmark questions found. Recommend adding 10-20 benchmarks covering the sample questions (with 2-4 phrasings each) to track accuracy as you iterate."
+- "You have 18 tables — this is above the recommended 5. Consider prejoining related dimension tables into views to reduce complexity."
+- "Column `forecastcategory` in `opportunity` has no description. Genie may misinterpret it. Add a description like 'Forecast stage: Pipeline, Best Case, Commit, Closed.'"
+
+**Always present a summary** of proposed changes before applying them.
+
+## Step M5: Apply Updates
+
+After the user approves changes, apply them via the PATCH API.
+
+### Update API Reference
+
+**Endpoint:** `PATCH /api/2.0/genie/spaces/{space_id}`
+
+**Parameters:**
+- `serialized_space`: Updated JSON configuration (required)
+- `title`: New title (optional)
+- `description`: New description (optional)
+
+**Note:** You cannot change the `warehouse_id` or `parent_path` after creation. To use a different warehouse or location, create a new space.
+
+### Validate Before Updating
+
+**Reference script:** Run `scripts/validate_config.py` on the modified config **before** calling the PATCH API. This catches sorting errors, duplicate IDs, invalid formats, concatenated questions, malformed SQL, and suggests parameterization opportunities.
+
+### Python Example
+
+**Reference script:** See `scripts/manage_space.py` (Part 2) for the complete update code. It shows how to add example SQL queries, sort all ID-based collections, and call the PATCH API.
+
+
+### Example SQL Query Format
+
+When adding `example_question_sqls`, each example should include:
+
+- `id`: Unique 32-character hex ID
+- `question`: Array of natural language phrasings
+- `sql`: Array of strings representing the SQL query (split by lines)
+
+json
+{
+  "id": "c3d4e5f6a7b80000000000000000000c",
+  "question": [
+    "What are total sales by product category?",
+    "Show me sales broken down by category"
+  ],
+  "sql": [
+    "SELECT ",
+    "  p.category,",
+    "  SUM(o.quantity * o.unit_price) as total_sales",
+    "FROM sales.gold.orders o",
+    "JOIN sales.gold.products p ON o.product_id = p.product_id",
+    "GROUP BY p.category",
+    "ORDER BY total_sales DESC"
+  ]
+}
+
+
+## Step M6: Benchmark and Verify
+
+After applying updates, recommend that the user runs benchmarks to verify improvements.
+
+1. **If benchmarks exist:** Re-run all benchmarks (or the subset related to the changes) from the **Benchmarks** tab and compare accuracy to the previous run.
+2. **If no benchmarks exist:** Recommend creating 10-20 benchmark questions covering the space's core use cases, with 2-4 phrasings each and SQL ground truth answers.
+3. **Manual testing:** Ask the user to test the specific questions that were previously failing, using a **new chat** to avoid influence from prior conversation context.
+4. **Clone for safe testing:** For significant changes, recommend cloning the space first, applying changes to the clone, and benchmarking there before updating production.
+
+---
 
 ## Additional Resources
 
