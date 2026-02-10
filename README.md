@@ -1,4 +1,4 @@
-# Prompt to Genie
+# Prompt to Genie Space
 
 Leveraging [Databricks Assistant agent skills](https://docs.databricks.com/aws/en/assistant/skills) and [custom instructions](https://docs.databricks.com/aws/en/notebooks/assistant-tips#customize-assistant-responses-by-adding-instructions) that enable you to create and manage [AI/BI Genie](https://docs.databricks.com/aws/en/genie/index.html) spaces using natural language — directly from the Databricks Assistant in agent mode.
 
