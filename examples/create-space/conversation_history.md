@@ -44,8 +44,10 @@ I found 5 serverless SQL warehouses in your workspace:
 | Name | ID | Size | State |
 |------|----|------|-------|
 | Shared Endpoint | `XXXXXX` | Large | RUNNING |
+| Starter Warehouse | `XXXXXX` | Medium | RUNNING |
 | Testing-wh | `XXXXXX` | 2X-Small | STOPPED |
 | cleanup-auto-created-warehouse | `XXXXXX` | 2X-Small | STOPPED |
+| dev-warehouse | `XXXXXX` | Small | STOPPED |
 
 I'd recommend using one of the running warehouses like **Shared Endpoint** for immediate availability.
 

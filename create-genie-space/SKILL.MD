@@ -73,15 +73,17 @@ catalog.schema.table_name
 
 
 **Tip:** If the user is unsure, help them explore their catalog:
-sql
+```sql
 SHOW TABLES IN catalog.schema;
+```
 
 
 ### Validate Table Access
 
 Before adding tables to the space, verify the user has access:
-sql
+```sql
 DESCRIBE TABLE catalog.schema.table_name;
+```
 
 
 If successful, the table is accessible and can be included in the Genie space.
@@ -89,8 +91,9 @@ If successful, the table is accessible and can be included in the Genie space.
 ### Check Column Quality
 
 Review column names and descriptions to assess annotation quality:
-sql
+```sql
 DESCRIBE TABLE EXTENDED catalog.schema.table_name;
+```
 
 
 If column descriptions are missing or unclear, suggest the user add them in Unity Catalog first — this significantly improves Genie's response accuracy.
@@ -166,7 +169,7 @@ Use complete example SQL queries for hard-to-interpret, multi-part, or complex q
 
 **Critical formatting rule:** Each phrasing must be a **separate string element** in the array. Never concatenate multiple phrasings into one string.
 
-json
+```json
 {
   "question": [
     "What are total sales by product category?",
@@ -183,6 +186,7 @@ json
     "ORDER BY total_sales DESC"
   ]
 }
+```
 
 
 #### Parameterized Queries
@@ -190,7 +194,7 @@ json
 Add parameters to example SQL using the `:parameter_name` syntax. Parameterized queries become **trusted assets** — when Genie uses them, the response is labeled **Trusted**, giving users extra confidence in accuracy. Users can edit parameter values and rerun the query.
 
 **Example:**
-sql
+```sql
 -- Return current pipeline by region for a given forecast category
 SELECT
   a.region__c AS `Region`,
@@ -201,6 +205,7 @@ WHERE
   o.forecastcategory = :forecast_category AND
   o.stagename NOT ILIKE '%closed%'
 GROUP BY ALL;
+```
 
 
 **Parameter types:** String (default), Date, Date and Time, Numeric (Decimal or Integer).
@@ -261,7 +266,7 @@ For questions involving complex logic that can't be captured with a static or pa
 - The same function can serve multiple Genie spaces
 
 **Example — creating a UDF for pipeline analysis:**
-sql
+```sql
 CREATE OR REPLACE FUNCTION catalog.schema.open_opps_in_region (
   regions ARRAY<STRING>
   COMMENT 'List of regions. Example: ["APAC", "EMEA"]' DEFAULT NULL
@@ -282,6 +287,7 @@ RETURN
       isnull(open_opps_in_region.regions)
       OR array_contains(open_opps_in_region.regions, region__c)
     );
+```
 
 
 **Tips for writing UDFs:**
@@ -315,7 +321,7 @@ If the user doesn't know their warehouse ID or workspace URL, help them discover
 
 Build the `serialized_space` JSON with all gathered information:
 
-json
+```json
 {
   "version": 2,
   "config": {
@@ -344,6 +350,7 @@ json
     ]
   }
 }
+```
 
 
 **Important Notes:**
@@ -362,9 +369,10 @@ json
 
 ### ID Generation
 Generate unique 32-character hexadecimal IDs (UUID format without hyphens):
-python
+```python
 import secrets
 question_id = secrets.token_hex(16)  # Generates 32-char hex string, e.g., "a1b2c3d4e5f60000000000000000000a"
+```
 
 
 **Important ID Requirements:**
@@ -780,7 +788,7 @@ When adding `example_question_sqls`, each example should include:
 - `question`: Array of natural language phrasings
 - `sql`: Array of strings representing the SQL query (split by lines)
 
-json
+```json
 {
   "id": "c3d4e5f6a7b80000000000000000000c",
   "question": [
@@ -797,6 +805,7 @@ json
     "ORDER BY total_sales DESC"
   ]
 }
+```
 
 
 ## Step M6: Benchmark and Verify
