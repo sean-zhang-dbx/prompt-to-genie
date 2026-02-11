@@ -264,3 +264,69 @@ if accessible:
         print(f"  Strongly recommend adding table comments and column descriptions first.")
 else:
     print(f"  No tables were accessible. Check permissions and table identifiers.")
+
+
+# =====================================================================
+# PART 3: PROFILE KEY COLUMNS
+# =====================================================================
+# Profile string/category columns and date ranges to help write accurate
+# SQL expressions, filters, and example queries.
+#
+# This is OPTIONAL but strongly recommended before generating SQL.
+# Helps avoid common errors like referencing non-existent column values.
+
+# Set to True to enable profiling
+enable_profiling = False
+
+# Max distinct values to show per column (for string/category columns)
+max_distinct_values = 20
+
+# Column types to profile for distinct values
+CATEGORICAL_TYPES = {"string", "varchar", "char", "boolean"}
+DATE_TYPES = {"date", "timestamp", "timestamp_ntz"}
+
+if enable_profiling and accessible:
+    print(f"\n\n{'=' * 70}")
+    print("PART 3: COLUMN VALUE PROFILING")
+    print("Inspecting actual data values to inform SQL generation")
+    print("=" * 70)
+
+    for result in accessible:
+        table_id = result["table"]
+        print(f"\n{'─' * 70}")
+        print(f"TABLE: {table_id}")
+        print(f"{'─' * 70}")
+
+        for col in result["columns"]:
+            col_name = col["name"]
+            col_type = col["type"].lower().split("<")[0].split("(")[0].strip()
+
+            if col_type in CATEGORICAL_TYPES:
+                try:
+                    rows = spark.sql(
+                        f"SELECT DISTINCT `{col_name}` FROM {table_id} "
+                        f"WHERE `{col_name}` IS NOT NULL "
+                        f"ORDER BY `{col_name}` LIMIT {max_distinct_values + 1}"
+                    ).collect()
+                    values = [str(r[0]) for r in rows]
+                    if len(values) > max_distinct_values:
+                        print(f"  {col_name} ({col_type}): {max_distinct_values}+ distinct values — {', '.join(values[:10])}...")
+                    elif values:
+                        print(f"  {col_name} ({col_type}): {', '.join(values)}")
+                    else:
+                        print(f"  {col_name} ({col_type}): (all NULL)")
+                except Exception as e:
+                    print(f"  {col_name} ({col_type}): Error — {e}")
+
+            elif col_type in DATE_TYPES:
+                try:
+                    row = spark.sql(
+                        f"SELECT MIN(`{col_name}`) AS min_val, MAX(`{col_name}`) AS max_val "
+                        f"FROM {table_id}"
+                    ).collect()[0]
+                    print(f"  {col_name} ({col_type}): {row['min_val']} to {row['max_val']}")
+                except Exception as e:
+                    print(f"  {col_name} ({col_type}): Error — {e}")
+
+    print(f"\n  Tip: Use these values to write accurate filters and SQL expressions.")
+    print(f"  Ask the user about domain conventions (fiscal calendar, abbreviations, etc.).")

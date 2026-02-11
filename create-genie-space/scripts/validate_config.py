@@ -203,6 +203,20 @@ def validate_config(config: dict) -> list[dict]:
                 error(f"{p}.content", "Must be a non-empty array of strings")
             else:
                 check_string_array(f"{p}.content", content)
+                # Check for placeholder/stale text patterns in instructions
+                full_text = " ".join(content).lower()
+                stale_patterns = [
+                    ("todo", "Contains TODO marker — may be a draft instruction"),
+                    ("fixme", "Contains FIXME marker — may be incomplete"),
+                    ("placeholder", "Contains 'placeholder' — may not be finalized"),
+                    ("change this", "Contains 'change this' — may be a template reminder"),
+                    ("update this", "Contains 'update this' — may be a template reminder"),
+                    ("# comment", "Contains comment syntax — should be plain text instructions"),
+                    ("//", "Contains comment syntax — should be plain text instructions"),
+                ]
+                for pattern, msg in stale_patterns:
+                    if pattern in full_text:
+                        warn(f"{p}.content", msg)
 
     # example_question_sqls
     example_sqls = instructions.get("example_question_sqls", [])

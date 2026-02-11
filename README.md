@@ -10,7 +10,8 @@ Instead of manually configuring Genie spaces through the UI or writing raw API c
 prompt-to-genie/
 ├── .assistant_instructions.md              # Custom user instructions for the Assistant
 ├── create-genie-space/
-│   ├── SKILL.md                            # Skill: Create & manage Genie spaces via conversation
+│   ├── SKILL.md                            # Skill: Create & manage Genie spaces (workflows)
+│   ├── REFERENCE.md                        # Reference: JSON schema, errors, troubleshooting, UI guides
 │   └── scripts/
 │       ├── discover_resources.py           # List warehouses + audit table metadata quality
 │       ├── validate_config.py              # Validate serialized_space JSON before API calls
@@ -30,9 +31,9 @@ prompt-to-genie/
 A conversational skill with two modes:
 
 **Create a New Space:**
-1. **Gathering requirements** — purpose, audience, and data domain
-2. **Identifying data sources** — Unity Catalog tables to include, with metadata quality audit
-3. **Defining sample questions** — business-friendly starter questions for end users
+1. **Gathering requirements (most important)** — deep-dive into business context, terminology, fiscal calendars, filtering conventions, and real user questions
+2. **Identifying and profiling data sources** — select Unity Catalog tables, then profile actual columns and values to confirm business term mappings with the user
+3. **Defining sample questions** — business-friendly starter questions grounded in confirmed data
 4. **Configuring instructions** — SQL expressions, example SQL queries, parameterized queries, UDFs, and text instructions
 5. **Discovering resources** — finding serverless SQL warehouses and workspace URLs
 6. **Validating and testing** — validate JSON config, test example SQL queries, check formatting
@@ -43,9 +44,15 @@ A conversational skill with two modes:
 1. **Retrieving configuration** — fetch and parse the current space setup
 2. **Auditing against best practices** — evaluate tables, instructions, and metadata quality
 3. **Diagnosing issues** — triage specific problems (wrong columns, bad joins, metric errors, etc.)
-4. **Recommending optimizations** — suggest parameterized queries, SQL expressions, column cleanup, and more
-5. **Applying updates** — modify configuration via the API
+4. **Recommending optimizations** — suggest improvements, tagged as API or UI changes
+5. **Applying updates** — two modes:
+   - **Mode A: Assistant applies** — the Assistant modifies config and calls the PATCH API directly
+   - **Mode B: Guided walkthrough** — the Assistant walks the user step-by-step through each change in the Genie UI
 6. **Benchmarking** — verify improvements with systematic accuracy testing
+
+The skill is split into two files:
+- **`SKILL.md`** — The procedural workflows (create and manage). This is what the Assistant loads and follows step by step.
+- **`REFERENCE.md`** — Reference material: `serialized_space` JSON schema, error codes, troubleshooting guide, and UI walkthrough templates. Referenced from `SKILL.md` when needed.
 
 ### `.assistant_instructions.md`
 

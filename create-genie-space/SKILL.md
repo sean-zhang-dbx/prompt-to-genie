@@ -12,9 +12,9 @@ Guide users through creating new Databricks AI/BI Genie spaces or managing exist
 ## Workflow Overview
 
 ### Create a New Space
-1. **Gather Requirements** - Define purpose, audience, and scope (start small)
-2. **Identify Data Sources** - Select focused Unity Catalog tables (aim for ≤5)
-3. **Define Sample Questions** - Create starter questions for business users
+1. **Gather Requirements (Most Important)** - Deep-dive into business context, terminology, conventions, and real user questions
+2. **Identify and Profile Data Sources** - Select tables, then profile actual columns and values to confirm business term mappings
+3. **Define Sample Questions** - Create starter questions grounded in confirmed data
 4. **Configure Instructions** - Prioritize SQL expressions > example SQL > text instructions
 5. **Generate Configuration** - Build the serialized_space JSON
 6. **Create the Space** - Call the Genie API to create the space
@@ -24,34 +24,61 @@ Guide users through creating new Databricks AI/BI Genie spaces or managing exist
 1. **Retrieve Current Configuration** - Fetch and parse the space's serialized_space JSON
 2. **Audit Against Best Practices** - Evaluate tables, instructions, and metadata quality
 3. **Diagnose Reported Issues** - Triage specific problems users are experiencing
-4. **Recommend Optimizations** - Suggest proactive improvements
-5. **Apply Updates** - Modify configuration via the PATCH API
+4. **Recommend Optimizations** - Suggest improvements, tagged as API or UI changes
+5. **Apply Updates** - Two modes:
+   - **Mode A: Assistant applies** — modify config via the PATCH API
+   - **Mode B: Guided walkthrough** — walk the user step-by-step through the Genie UI
 6. **Benchmark and Verify** - Run benchmarks to confirm improvements
 
 ---
 
 # Create a New Space
 
-## Step 1: Gather Requirements
+## Step 1: Gather Requirements (Most Important Step)
 
-A well-defined Genie space should answer questions for a **specific topic and audience**, not general questions across various domains. Start by understanding the user's needs clearly.
+**Getting the initial room right is far more valuable than iterating on a broken one.** Invest time upfront to deeply understand the business context — this is the single biggest factor in whether the space works well out of the box.
 
-Ask the user about:
+A well-defined Genie space answers questions for a **specific topic and audience**, not general questions across various domains. Gather requirements in two phases: first the business context, then the data context.
 
-- [ ] **Purpose**: What specific business questions should this space answer? Be narrow and focused.
-- [ ] **Audience**: Who will use this space? (analysts, executives, etc.) Ideally, a domain expert who understands both the data and the business insights should help define the space.
+### Phase 1: Business Context Interview
+
+Ask the user about each of these. **Do not move to Step 2 until you have clear answers.**
+
+- [ ] **Purpose**: What specific business questions should this space answer? Ask for 5-10 real questions that end users actually ask today. Not hypothetical — actual questions from meetings, Slack, emails, etc.
+- [ ] **Audience**: Who will use this space? What's their technical level? What decisions do they make with this data?
 - [ ] **Data Domain**: What single area does the data cover? (sales, finance, operations, etc.)
-- [ ] **Key metrics, filters, and dimensions**: What business terms do users frequently reference? (e.g., "total revenue", "active customer", "fiscal quarter") These will become SQL expressions.
-- [ ] **Scope**: Start small — aim for a minimal setup with essential tables and basic instructions. It's easier to add more later than to debug an overly complex space.
+- [ ] **Business terminology**: What domain-specific terms do users use? Ask for a glossary of key terms and their exact definitions. For example:
+  - "What does 'active customer' mean in your context?"
+  - "How do you define 'revenue' — gross, net, ARR?"
+  - "What's an 'open pipeline' vs. 'committed pipeline'?"
+- [ ] **Calendar and time conventions**: This is a common source of errors. Ask explicitly:
+  - "What is your fiscal year calendar? (e.g., Feb-Jan, Apr-Mar, Jan-Dec)"
+  - "When someone says 'Q1', what months does that mean?"
+  - "Do you use fiscal year or calendar year by default?"
+- [ ] **Key metrics, filters, and dimensions**: What business terms do users frequently reference? These become SQL expressions.
+  - Metrics: "total revenue", "conversion rate", "average deal size"
+  - Filters: "active customer", "EMEA region", "enterprise tier"
+  - Dimensions: "fiscal quarter", "product line", "sales stage"
+- [ ] **Filtering conventions**: How do users refer to filter values?
+  - "When someone says 'Lakebase', which column and value does that correspond to?"
+  - "Do your region names use codes (EMEA, NA) or full names (Europe, North America)?"
+  - "Are product names stored as codes, display names, or something else?"
+- [ ] **Scope**: Start small — essential tables and basic instructions only. It's easier to add more later than to debug an overly complex space.
 
 **Example prompt:**
-> "What kind of questions do you want users to be able to ask in this Genie space? For example: sales analytics, customer insights, inventory tracking? Try to keep it focused on one topic — a narrowly scoped space gives more accurate answers."
+> "Before I build the Genie space, I need to deeply understand your business context. This upfront investment will make the space much more accurate out of the box. Can you tell me:
+> 1. What are 5-10 real questions your team asks about this data today?
+> 2. What key business terms does your team use, and what do they mean precisely?
+> 3. What is your fiscal calendar? (e.g., when does Q1 start?)
+> 4. When users filter by things like region, product, or status — what values do they use, and how are those stored in the data?"
 
-**Key principle:** Curating a Genie space is an iterative process. Plan to start small and refine based on real user feedback rather than aiming for perfection on the first pass.
+**Key principle:** It's far more frustrating to debug a room that gets things wrong than to spend an extra few minutes gathering context upfront. Push back gently if the user tries to skip this step — the quality of the initial room depends on it.
 
-## Step 2: Identify Data Sources
+## Step 2: Identify and Profile Data Sources
 
-Determine which Unity Catalog tables to include. **Keep the dataset focused** — include only the tables necessary to answer the questions from Step 1.
+Determine which Unity Catalog tables to include, then **profile the actual data** before writing any SQL. This two-part step prevents the most common errors in Genie space creation.
+
+### 2a: Select Tables
 
 - [ ] **Catalog name**: Which catalog contains the data?
 - [ ] **Schema name**: Which schema?
@@ -60,7 +87,7 @@ Determine which Unity Catalog tables to include. **Keep the dataset focused** �
 **Example prompt:**
 > "Which Unity Catalog tables should this Genie space have access to? Please provide the full path (catalog.schema.table)."
 
-### Data Source Best Practices
+**Data Source Best Practices:**
 
 - **Aim for 5 or fewer tables.** The more focused your selection, the better Genie performs. Limit the number of columns in your included tables to what's actually relevant.
 - **Maximum 25 tables per space.** If you need more, prejoin related tables into views or metric views before adding them to the space.
@@ -68,7 +95,7 @@ Determine which Unity Catalog tables to include. **Keep the dataset focused** �
 - **Build on well-annotated tables.** Genie uses Unity Catalog column names and descriptions to generate responses. Clear column names and descriptions help produce high-quality answers. Advise users to add or review column descriptions in Unity Catalog before creating the space.
 - **Hide irrelevant columns.** After adding tables, recommend that users hide any columns that might be confusing or unimportant for the space's purpose. This reduces ambiguity for Genie.
 
-### Table Format
+**Table Format:**
 
 catalog.schema.table_name
 
@@ -79,17 +106,42 @@ SHOW TABLES IN catalog.schema;
 ```
 
 
-### Validate Table Access
+### 2b: Profile the Data (Required Before Writing Any SQL)
 
-Before adding tables to the space, verify the user has access:
+**Do not skip this step.** Before generating sample questions, SQL expressions, or example SQL queries, you must inspect the actual data in the tables. Do not assume column names, values, or date ranges based on table names alone.
+
+**For each table, run:**
+
 ```sql
+-- 1. What columns exist and what are their types?
 DESCRIBE TABLE catalog.schema.table_name;
+
+-- 2. What distinct values exist in key string/category columns?
+SELECT DISTINCT column_name FROM catalog.schema.table_name LIMIT 20;
+
+-- 3. What are the date ranges?
+SELECT MIN(date_col), MAX(date_col) FROM catalog.schema.table_name;
+
+-- 4. Sample rows to understand the data shape
+SELECT * FROM catalog.schema.table_name LIMIT 5;
 ```
 
+**Reference script:** See `scripts/discover_resources.py` — Part 2 audits table metadata quality, Part 3 (set `enable_profiling = True`) profiles actual column values for string/category and date columns.
 
-If successful, the table is accessible and can be included in the Genie space.
+**After profiling, cross-reference with the user's business context from Step 1:**
 
-### Check Column Quality
+1. **Column mapping**: Present the user with a summary of columns and ask them to confirm which columns map to their business terms. For example:
+   > "I see the table has a `use_case_product` column with values like 'AI/BI', 'DWH', 'Unity Catalog'. Is this the column to use when users ask about 'Lakebase' or 'Genie' products? What value should I filter on?"
+
+2. **Value confirmation**: Show the user the actual distinct values for key filter columns and ask them to confirm the mapping. For example:
+   > "The `region` column has values: 'AMER', 'EMEA', 'APJ'. When users say 'North America', should I filter on 'AMER'?"
+
+3. **Date range confirmation**: Show the user the date ranges and confirm calendar conventions. For example:
+   > "The `order_date` column ranges from 2023-01-15 to 2025-12-31. You mentioned fiscal Q1 is Feb-Apr — so for 'FY25 Q1', I should filter Feb 2025 to Apr 2025. Is that correct?"
+
+**This confirmation step is critical.** The #1 cause of poor initial rooms is the Assistant guessing how business terms map to actual column values. Always confirm with the user.
+
+### 2c: Check Column Quality
 
 Review column names and descriptions to assess annotation quality:
 ```sql
@@ -99,9 +151,7 @@ DESCRIBE TABLE EXTENDED catalog.schema.table_name;
 
 If column descriptions are missing or unclear, suggest the user add them in Unity Catalog first — this significantly improves Genie's response accuracy.
 
-**Reference script:** See `scripts/discover_resources.py` (Part 2) for a comprehensive audit that checks table comments, column descriptions, column counts, foreign keys, and generates a Genie-readiness quality score with specific recommendations.
-
-### Define Table Relationships
+### 2d: Define Table Relationships
 
 If foreign key references are not defined in Unity Catalog, Genie may not know how to join tables correctly. Recommend users:
 
@@ -110,24 +160,14 @@ If foreign key references are not defined in Unity Catalog, Genie may not know h
 3. **Provide example SQL queries with correct joins** as a fallback
 4. **Pre-join tables into views** if none of the above work
 
-### Build a Knowledge Store (Post-Creation, in UI)
-
-After creating the space via the API, recommend that users build out the **knowledge store** in the Genie space UI. A knowledge store is a collection of curated semantic definitions scoped to the space:
-
-- **Column metadata and synonyms** — custom descriptions and alternate names to reduce ambiguity
-- **SQL expressions** — reusable definitions for metrics, filters, and dimensions
-- **Join relationships** — explicit definitions of how tables relate
-- **Prompt matching** — helps Genie match user values to correct columns (e.g., "California" → "CA"), automatically enabled when tables are added
-
-These enhancements don't require write access to the underlying Unity Catalog tables — they're scoped to the Genie space only.
-
 ## Step 3: Define Sample Questions
 
-Create 3-5 starter questions that demonstrate the space's capabilities:
+Create 3-5 starter questions that demonstrate the space's capabilities. **Base these on the real user questions from Step 1 and the confirmed data mappings from Step 2b** — don't invent questions that reference columns or values you haven't verified.
 
 - Questions should be business-focused, not technical
 - Cover common use cases for the target audience
 - Use natural language that business users would actually ask
+- Only reference data concepts you've confirmed exist in the actual tables
 
 **Good examples:**
 - "What were total sales last quarter?"
@@ -137,6 +177,7 @@ Create 3-5 starter questions that demonstrate the space's capabilities:
 **Avoid:**
 - "SELECT * FROM sales" (too technical)
 - "Get data" (too vague)
+- Questions referencing columns or values you haven't verified exist
 
 ## Step 4: Configure Instructions
 
@@ -238,11 +279,18 @@ GROUP BY ALL;
 
 Reserve text instructions for context that doesn't fit SQL definitions. Keep them concise and specific — too many instructions can reduce effectiveness.
 
+**Critical: Text instructions must reflect the actual data model.** Before writing text instructions:
+1. **Inspect actual column names** — don't describe columns that don't exist
+2. **Verify filter values** — reference actual values from the data, not assumed ones
+3. **Confirm business definitions** with the user (fiscal calendars, product names, abbreviations)
+4. **Remove or update stale guidance** — never leave instructions that reference old column names, removed tables, or deprecated business logic
+
 **Good text instructions:**
 - "Active customer" means a customer with at least one order in the last 90 days
 - Revenue should always be calculated as quantity * unit_price * (1 - discount)
 - Fiscal year starts April 1st
 - All monetary values are in USD unless otherwise specified
+- The `use_case_product` column contains product type values like "AI/BI", "DWH", "Unity Catalog" — use this column to filter by product
 
 **Avoid vague instructions.** Instead of "Ask clarification questions when asked about sales," write:
 > "When users ask about sales metrics without specifying product name or sales channel, ask: 'To proceed with sales analysis, please specify your product name and sales channel.'"
@@ -338,121 +386,17 @@ If the user doesn't know their warehouse ID or workspace URL, help them discover
 
 ## Step 5: Generate Configuration
 
-Build the `serialized_space` JSON with all gathered information. Below is the complete structure — include only the sections that are relevant to the user's space:
+Build the `serialized_space` JSON with all gathered information. **See `REFERENCE.md` → "serialized_space JSON Schema"** for the complete template, field reference table, and formatting rules.
 
-```json
-{
-  "version": 2,
-  "config": {
-    "sample_questions": [
-      {
-        "id": "a1b2c3d4e5f60000000000000000000a",
-        "question": ["What were total sales last month?"]
-      }
-    ]
-  },
-  "data_sources": {
-    "tables": [
-      {"identifier": "catalog.schema.table1", "description": ["Description of table1"]},
-      {"identifier": "catalog.schema.table2"}
-    ],
-    "metric_views": [
-      {"identifier": "catalog.schema.metric_view1", "description": ["Revenue metrics"]}
-    ]
-  },
-  "instructions": {
-    "text_instructions": [
-      {
-        "id": "b2c3d4e5f6a70000000000000000000b",
-        "content": ["General instructions for the space."]
-      }
-    ],
-    "example_question_sqls": [
-      {
-        "id": "c3d4e5f6a7b80000000000000000000c",
-        "question": ["Show top 10 customers by revenue"],
-        "sql": ["SELECT\n", "  customer_name,\n", "  SUM(amount) as total\n", "FROM catalog.schema.orders\n", "GROUP BY customer_name\n", "ORDER BY total DESC\n", "LIMIT 10"]
-      }
-    ],
-    "sql_functions": [
-      {
-        "id": "d4e5f6a7b8c90000000000000000000d",
-        "identifier": "catalog.schema.fiscal_quarter"
-      }
-    ],
-    "join_specs": [
-      {
-        "id": "e5f6a7b8c9d00000000000000000000e",
-        "left": {"identifier": "catalog.schema.orders"},
-        "right": {"identifier": "catalog.schema.customers"},
-        "sql": ["orders.customer_id = customers.customer_id"]
-      }
-    ],
-    "sql_snippets": {
-      "filters": [
-        {"id": "f6a7b8c9d0e10000000000000000000f", "sql": ["amount > 1000"], "display_name": "high value"}
-      ],
-      "expressions": [
-        {"id": "a7b8c9d0e1f20000000000000000000a", "alias": "order_year", "sql": ["YEAR(order_date)"]}
-      ],
-      "measures": [
-        {"id": "b8c9d0e1f2a30000000000000000000b", "alias": "total_revenue", "sql": ["SUM(amount)"]}
-      ]
-    }
-  },
-  "benchmarks": {
-    "questions": [
-      {
-        "id": "c9d0e1f2a3b40000000000000000000c",
-        "question": ["What is average order value?"],
-        "answer": [{"format": "SQL", "content": ["SELECT AVG(amount) FROM catalog.schema.orders"]}]
-      }
-    ]
-  }
-}
-```
+**Key rules to remember:**
+- `version`: Must be `2`
+- **IDs**: 32 lowercase hex characters, generated via `secrets.token_hex(16)`, unique within each collection
+- **Sorting**: All arrays with `id` fields sorted alphabetically by `id`; tables sorted by `identifier`
+- **SQL format**: Each SQL clause is a separate array element with `\n` at the end
+- **One question per entry**: Each `sample_questions` and `example_question_sqls` entry has exactly one question string
+- **Include only what's needed**: Omit sections that don't apply
 
-
-**Field Reference:**
-
-| Section | Field | Description |
-|---------|-------|-------------|
-| `config.sample_questions[]` | `id`, `question` | Starter questions shown to users. One question per entry. |
-| `data_sources.tables[]` | `identifier`, `description` (optional) | Unity Catalog tables. `description` is a space-scoped override (array of strings). |
-| `data_sources.metric_views[]` | `identifier`, `description` (optional) | Metric views with pre-defined metrics, dimensions, and aggregations. |
-| `instructions.text_instructions[]` | `id`, `content` | General guidance (max 1 per space). `content` is an array of strings. |
-| `instructions.example_question_sqls[]` | `id`, `question`, `sql` | Example SQL queries. One question per entry. `sql` is an array of line strings with `\n`. |
-| `instructions.sql_functions[]` | `id`, `identifier` | Unity Catalog UDFs referenced by their full path. |
-| `instructions.join_specs[]` | `id`, `left`, `right`, `sql` | Join relationships between tables. `sql` is the join condition. |
-| `instructions.sql_snippets.filters[]` | `id`, `sql`, `display_name` | Filter definitions (boolean conditions). |
-| `instructions.sql_snippets.expressions[]` | `id`, `sql`, `alias` | Dimension definitions (grouping attributes). |
-| `instructions.sql_snippets.measures[]` | `id`, `sql`, `alias` | Measure definitions (aggregation KPIs). |
-| `benchmarks.questions[]` | `id`, `question`, `answer` | Benchmark questions with SQL ground truth. |
-
-**Important Notes:**
-- `version`: **Required**. Use `2` for new spaces
-- `question`: Must be an array with a **single question string** per entry
-- `sql` (in `example_question_sqls`): Must be an array of strings. **Each SQL clause should be a separate element** with `\n` at the end:
-  - Correct: `["SELECT\n", "  col1,\n", "  col2\n", "FROM table\n", "WHERE col1 > 0"]`
-  - Wrong: `["SELECT col1, col2FROM tableWHERE col1 > 0"]`
-- **ID Format**: All IDs must be exactly 32 lowercase hexadecimal characters (no hyphens)
-- **Sorting**: All arrays of objects with `id` fields must be sorted alphabetically by `id`. Tables must be sorted by `identifier`.
-- **Include only what's needed**: Omit sections that don't apply (e.g., skip `metric_views` if none, skip `benchmarks` if not creating them yet)
-
-
-### ID Generation
-Generate unique 32-character hexadecimal IDs (UUID format without hyphens):
-```python
-import secrets
-question_id = secrets.token_hex(16)  # Generates 32-char hex string, e.g., "a1b2c3d4e5f60000000000000000000a"
-```
-
-
-**Important ID Requirements:**
-- Must be exactly 32 characters long
-- Must be lowercase hexadecimal (0-9, a-f)
-- No hyphens or other separators
-- Must be unique within their collection
+**Reference script:** See `scripts/create_space.py` for the complete template with all sections.
 
 
 ## Step 6: Create the Space
@@ -488,7 +432,13 @@ POST https://<workspace-url>/api/2.0/genie/spaces
 
 ### Test Example SQL Queries
 
-**Before calling the API**, execute every example SQL query to verify it runs successfully. Do not create the space with untested SQL.
+**Before calling the API**, execute every example SQL query to verify it runs successfully and returns the expected results. Do not create the space with untested SQL.
+
+**Verify correctness, not just execution:**
+- Does the query filter on the right columns? (Check actual column names via `DESCRIBE TABLE`)
+- Do the filter values match what's in the data? (Check via `SELECT DISTINCT`)
+- Are date ranges correct for the user's fiscal calendar or business conventions?
+- Does the result make business sense?
 
 For each `example_question_sqls` entry in the configuration:
 
@@ -532,6 +482,17 @@ Get the workspace URL from `w.config.host` (strip trailing slash) and the space 
 ## Step 7: Test and Iterate
 
 After creating the space, **the curator should be the first user**. Testing and iterating is essential — a Genie space gets better over time with real-world feedback.
+
+### Build a Knowledge Store (Post-Creation, in UI)
+
+After creating the space, recommend that users build out the **knowledge store** in the Genie space UI. A knowledge store is a collection of curated semantic definitions scoped to the space:
+
+- **Column metadata and synonyms** — custom descriptions and alternate names to reduce ambiguity
+- **SQL expressions** — reusable definitions for metrics, filters, and dimensions
+- **Join relationships** — explicit definitions of how tables relate
+- **Prompt matching** — helps Genie match user values to correct columns (e.g., "California" → "CA"), automatically enabled when tables are added
+
+These enhancements don't require write access to the underlying Unity Catalog tables — they're scoped to the Genie space only.
 
 ### Self-Testing
 
@@ -588,27 +549,35 @@ Once you're satisfied with self-testing, recruit a business user:
 - Treat the space as a living artifact — small updates based on real usage significantly improve results over time
 - Consider **cloning** the space to test significant changes in isolation before applying them to the production space
 
-## Complete Example Conversation
+## Example Conversation Flow
+
+This shows the expected depth of the requirements gathering process:
 
 **User:** "I want to create a Genie space for our sales team"
 
-**Agent:** "I can help you create a Genie space for sales analytics. Let me gather some information:
+**Agent:** "I'd love to help. Before building anything, I need to deeply understand your business context — this upfront investment is what makes the space accurate out of the box. Let me start with a few questions:
 
-1. What specific questions should users be able to ask? (e.g., revenue analysis, product performance, regional comparisons)
-2. Which Unity Catalog tables contain your sales data?"
+1. What are 5-10 real questions your team actually asks about sales data today? Not hypothetical — think of what comes up in meetings, Slack, or emails.
+2. What key business terms does your team use? For example, how do you define 'revenue' — gross, net, or ARR? What does 'active customer' mean?
+3. What is your fiscal calendar? When does Q1 start?
+4. When users filter by region or product — what values do they use, and how are those stored in the data?"
 
-**User:** "They need to analyze revenue by product and region. The data is in `analytics.sales.orders` and `analytics.sales.products`"
+**User:** "They ask things like 'What's our pipeline for EMEA this quarter?' and 'Which products have the highest revenue?' Revenue is net revenue after discounts. Our fiscal year starts February 1, so Q1 is Feb-Apr. Regions are stored as codes like AMER, EMEA, APJ. Data is in `analytics.sales.orders` and `analytics.sales.products`."
 
-**Agent:** "Got it. Here are some sample questions I'll include:
-- What is total revenue by product category?
-- Show me sales trends by region over the last 12 months
-- Which products have the highest profit margin?
+**Agent:** "Great — let me profile those tables to confirm the column mappings..."
 
-What serverless SQL warehouse should this space use, and where in the workspace should I create it?"
+*Agent runs `DESCRIBE TABLE` and `SELECT DISTINCT` on key columns, then presents findings:*
 
-**User:** "Use warehouse `abc123`, put it in `/Users/sean/genie_spaces`, call it 'Sales Analytics'"
+**Agent:** "I see the `orders` table has a `region_code` column with values: AMER, EMEA, APJ, LATAM. And a `net_revenue` column. The `order_date` ranges from 2023-01-15 to 2025-12-31. Can you confirm:
+- When users say 'EMEA', I should filter `region_code = 'EMEA'`?
+- 'Revenue' means the `net_revenue` column (not `gross_amount`)?
+- 'This quarter' as of today means FY26 Q1 = Feb 2026 – Apr 2026?"
 
-**Agent generates and creates the space with the configuration**
+**User:** "Yes, all correct."
+
+**Agent:** *Proceeds to build configuration with confirmed mappings, SQL expressions for net revenue and fiscal quarters, and example SQL queries validated against actual data.*
+
+**See `examples/` for complete conversation histories with full notebook output.**
 
 ## Validation Checklist
 
@@ -618,117 +587,43 @@ Before creating the space, verify:
 - [ ] At least one valid Unity Catalog table is specified
 - [ ] Tables are **focused** — ideally 5 or fewer, maximum 25
 - [ ] Tables exist and user has SELECT permission
+- [ ] **Data profiling complete** (Step 2b) — actual columns, values, and date ranges inspected and confirmed with user
 - [ ] Column names and descriptions are clear and well-annotated in Unity Catalog
 - [ ] Warehouse ID is valid and is a serverless SQL warehouse
 - [ ] Parent path exists in workspace
 - [ ] Sample questions are business-friendly and cover common use cases
 - [ ] **SQL expressions** (`sql_snippets`) are defined for key metrics, filters, and dimensions
 - [ ] **Example SQL queries** are included for complex or multi-step questions
-- [ ] **All example SQL queries have been executed** and return valid results (no errors, non-empty)
-- [ ] **Text instructions** are concise, specific, and non-conflicting
+- [ ] **All example SQL queries have been executed** and return valid, correct results (right columns, right filter values, business-sensible output)
+- [ ] **Text instructions** are concise, specific, non-conflicting, and reference only columns/values that actually exist in the tables
+- [ ] **No stale or placeholder text** in instructions (remove draft comments, TODO notes, or instructions referencing old schemas)
 - [ ] Instructions across all types are consistent (e.g., same rounding, same date conventions)
 - [ ] Title and description are provided
 
 ## Error Handling
 
-### HTTP Status Codes
-
-| Status Code | Error Type | Description |
-|-------------|------------|-------------|
-| 400 | BAD_REQUEST | Request is invalid. |
-| 401 | UNAUTHORIZED | The request does not have valid authentication credentials for the operation. |
-| 403 | PERMISSION_DENIED | Caller does not have permission to execute the specified operation. |
-| 404 | FEATURE_DISABLED | If a given user/entity is trying to use a feature which has been disabled. |
-| 500 | INTERNAL_ERROR | Internal error. |
-
-### Common Error Scenarios
-
-| Error | Likely Cause | Solution |
-|-------|--------------|----------|
-| 400 BAD_REQUEST - Invalid JSON | Invalid JSON in serialized_space | Validate JSON structure |
-| 400 BAD_REQUEST - "data_sources.tables must be sorted by identifier" | Tables array not sorted alphabetically | Sort tables by identifier field |
-| 400 BAD_REQUEST - "config.sample_questions must be sorted by id" | Sample questions not sorted alphabetically | Sort questions by id field |
-| 400 BAD_REQUEST - Invalid ID format | IDs not 32-char hex | Use secrets.token_hex(16) for 32-char IDs |
-| 400 BAD_REQUEST - Invalid parent path | Parent folder doesn't exist | Use existing folder or user home directory |
-| 400 BAD_REQUEST - Invalid warehouse | Warehouse is not serverless | Use a serverless SQL warehouse |
-| 401 UNAUTHORIZED | Missing or invalid authentication token | Check authentication credentials |
-| 403 PERMISSION_DENIED | No access to warehouse or tables | Check permissions on resources |
-| 404 FEATURE_DISABLED | Genie not enabled in workspace | Enable AI/BI Genie in workspace settings |
-| 500 INTERNAL_ERROR | Server-side error | Retry the request or contact support |
-
-## Troubleshooting Common Issues
-
-If users report problems with their Genie space after creation, use this reference to diagnose and fix common issues.
-
-### Misunderstood Business Jargon
-**Symptom:** Genie misinterprets domain-specific terms (e.g., "year" should mean fiscal year starting in February).
-**Fix:** Add text instructions that explicitly map business jargon to data concepts. For example: "When users refer to 'year', always use fiscal year. Fiscal year 26 (FY26) is February 1, 2026 through January 31, 2027."
-
-### Incorrect Table or Column Usage
-**Symptom:** Genie pulls data from the wrong table or column.
-**Fix:**
-- Verify that table/column descriptions match the terminology users use in their questions
-- Add example SQL queries showing the correct tables and columns to use
-- Hide unnecessary or overlapping columns in the Genie space UI
-- Remove redundant tables that could cause ambiguity
-
-### Filtering Errors (Wrong Values)
-**Symptom:** `WHERE` clause filters on "California" instead of "CA", or similar value mismatches.
-**Fix:** Ensure relevant columns have **Example values** and **Value dictionaries** enabled in the knowledge store. Refresh values if new data has been added.
-
-### Incorrect Joins
-**Symptom:** Genie joins tables incorrectly or doesn't know how to join them.
-**Fix:**
-1. Define foreign key references in Unity Catalog
-2. Define join relationships in the Genie space's knowledge store
-3. Provide example SQL queries with correct joins
-4. Pre-join tables into views as a last resort
-
-### Metric Calculation Errors
-**Symptom:** Metrics are calculated incorrectly or rolled up improperly.
-**Fix:**
-- Define metrics as **SQL expressions** in the knowledge store
-- Provide example SQL queries computing each roll-up value
-- For pre-aggregated tables, explain this in table comments and specify which aggregations are valid
-- For very complex metrics, create views that pre-compute the aggregations
-
-### Incorrect Time-Based Calculations
-**Symptom:** Timezone or date conversions produce wrong results.
-**Fix:** Add explicit text instructions for timezone handling:
-- "Time zones in the tables are in `UTC`."
-- "Convert all timezones using: `convert_timezone('UTC', 'America/Los_Angeles', <column>)`"
-- "To reference _today_ for users in Los Angeles, use `date(convert_timezone('UTC', 'America/Los_Angeles', current_timestamp()))`"
-
-### Genie Ignoring Instructions
-**Symptom:** Genie doesn't follow provided instructions consistently.
-**Fix:**
-- Add example SQL queries that demonstrate correct usage (most effective)
-- Hide irrelevant columns to reduce noise
-- Simplify tables by creating focused views
-- Review instructions for conflicts — remove irrelevant or contradictory ones
-- Start a new chat to test (previous interactions influence responses within a conversation)
-
-### Performance Issues / Timeouts
-**Symptom:** Genie takes too long or times out during query generation.
-**Fix:**
-- Check query history for slow-running queries and optimize the generated SQL
-- Use trusted assets (parameterized queries or UDFs) to encapsulate complex logic
-- Reduce the length of example SQL queries
-- Start a new chat if responses become consistently slow
-
-### Token Limit Warning
-**Symptom:** A warning appears about approaching the token limit, or messages can no longer be sent.
-**Fix:**
-- Remove unnecessary columns from tables (or hide them in the space)
-- Streamline column descriptions — don't duplicate info already conveyed by column names
-- Prune overlapping or redundant example SQL queries
-- Simplify text instructions — avoid unnecessary words
+If the API returns an error, see `REFERENCE.md` → "Error Handling" for the complete status code table and common error scenarios with solutions. The most frequent issues are:
+- **400 BAD_REQUEST**: Usually a sorting, ID format, or JSON structure issue — run `scripts/validate_config.py` first
+- **403 PERMISSION_DENIED**: Check permissions on the warehouse and tables
+- **401 UNAUTHORIZED**: Check authentication credentials
 
 ---
 
 # Manage an Existing Space
 
 Use this workflow when a user has an existing Genie space and wants to review, fix, or improve it. Ask the user for their **space ID** to get started.
+
+After diagnosing issues and recommending changes (Steps M1–M4), ask the user how they'd like to proceed:
+
+> "I've identified the changes needed. How would you like to apply them?
+> 1. **I'll make the changes for you** — I'll update the configuration via the API directly.
+> 2. **Walk me through it** — I'll guide you step-by-step through the Genie UI so you can make the changes yourself."
+
+**Mode A: Assistant Applies Changes** (Step M5-A) — Best for `serialized_space` config changes: adding/editing example SQL queries, SQL expressions, text instructions, sample questions, join specs, and SQL functions. The Assistant modifies the JSON and calls the PATCH API.
+
+**Mode B: Guided Walkthrough** (Step M5-B) — Best for knowledge store and UI-only changes: enabling prompt matching, hiding columns, adding column synonyms, configuring value dictionaries, editing column descriptions, and setting up benchmarks. Also useful when users want to learn how to curate the space themselves.
+
+Many updates involve changes from **both** modes — for example, adding SQL expressions (API) *and* enabling prompt matching on a filter column (UI). In that case, do Mode A first, then walk the user through the remaining UI steps.
 
 ## Step M1: Retrieve Current Configuration
 
@@ -770,6 +665,7 @@ Work through this checklist automatically after retrieving the configuration. Fl
 - [ ] **Sample questions**: Are there at least 3? Do they cover the space's stated purpose?
 - [ ] **Description quality**: Is the space description clear and informative?
 - [ ] **Prompt matching**: Remind users to verify that prompt matching is enabled for key filter columns in the UI.
+- [ ] **Cross-section consistency**: Do `text_instructions`, `example_question_sqls`, and `sql_snippets` all align? No stale or contradictory guidance?
 
 **Present findings** to the user as a prioritized list, starting with the highest-impact improvements.
 
@@ -822,22 +718,46 @@ If the user reports a specific problem, use this decision tree to triage:
 
 ## Step M4: Recommend Optimizations
 
-After auditing the config and/or diagnosing issues, proactively suggest improvements. Frame recommendations as specific, actionable changes with clear rationale.
+After auditing the config and/or diagnosing issues, proactively suggest improvements. Frame recommendations as specific, actionable changes with clear rationale. **Tag each recommendation** with how it's applied so the user can choose their preferred mode.
 
 **Example recommendations:**
 
-- "You have 5 example SQL queries but none use parameters. Consider converting the 2 queries that filter by region to use `:region` parameters — this gives users trusted asset labeling and lets them change the filter value."
-- "Your text instructions are 1800 characters with 6 metric definitions inline. Consider moving those metrics to SQL expressions in the knowledge store — they're more precise and reduce text instruction length."
-- "Tables `orders` and `order_details` both have a `total` column. This likely causes ambiguity. Recommend hiding `order_details.total` or renaming via a view."
-- "No benchmark questions found. Recommend adding 10-20 benchmarks covering the sample questions (with 2-4 phrasings each) to track accuracy as you iterate."
-- "You have 18 tables — this is above the recommended 5. Consider prejoining related dimension tables into views to reduce complexity."
-- "Column `forecastcategory` in `opportunity` has no description. Genie may misinterpret it. Add a description like 'Forecast stage: Pipeline, Best Case, Commit, Closed.'"
+- **(API)** "You have 5 example SQL queries but none use parameters. Consider converting the 2 queries that filter by region to use `:region` parameters — this gives users trusted asset labeling and lets them change the filter value."
+- **(API)** "Your text instructions are 1800 characters with 6 metric definitions inline. Consider moving those metrics to SQL expressions — they're more precise and reduce text instruction length."
+- **(UI)** "Tables `orders` and `order_details` both have a `total` column. This likely causes ambiguity. Recommend hiding `order_details.total` in the space settings."
+- **(UI)** "Prompt matching is not enabled for the `region` column. Enable it so Genie can map user input like 'North America' to the actual value 'AMER'."
+- **(UI)** "No benchmark questions found. Recommend adding 10-20 benchmarks covering the sample questions (with 2-4 phrasings each) to track accuracy as you iterate."
+- **(UI)** "Column `forecastcategory` in `opportunity` has no description. Add a description like 'Forecast stage: Pipeline, Best Case, Commit, Closed.'"
+- **(API)** "You have 18 tables — this is above the recommended 5. Consider prejoining related dimension tables into views to reduce complexity."
 
-**Always present a summary** of proposed changes before applying them.
+**Always present a summary** of proposed changes before applying them, grouped by mode:
 
-## Step M5: Apply Updates
+> **Changes I can apply via API:**
+> - Add 3 SQL expressions for revenue, active customer, fiscal quarter
+> - Add parameterized example SQL for pipeline by region
+> - Update text instructions to remove stale terminology
+>
+> **Changes to make in the Genie UI:**
+> - Enable prompt matching on `region` and `status` columns
+> - Hide `internal_id` and `etl_timestamp` columns
+> - Add 10 benchmark questions
+>
+> Would you like me to apply the API changes directly, walk you through both, or something else?
 
-After the user approves changes, apply them via the PATCH API.
+## Step M5-A: Apply Updates (Assistant Applies via API)
+
+After the user approves changes, apply them via the PATCH API. Use this mode for `serialized_space` config changes.
+
+### Review All Config Sections Before Updating
+
+When making changes to any part of the configuration, **review all related sections for consistency**. Common mistakes:
+
+- Updating `example_question_sqls` but leaving stale `text_instructions` that contradict the new SQL
+- Adding new SQL expressions but forgetting to update `text_instructions` that define the same terms differently
+- Fixing filter logic in example SQL but not updating the corresponding `sql_snippets.filters`
+- Changing table structure but not updating `join_specs` or `sql_snippets` that reference old columns
+
+**Before applying the PATCH**, verify that `text_instructions`, `example_question_sqls`, `sql_snippets`, `join_specs`, and `sql_functions` are all consistent with each other and with the current state of the underlying tables.
 
 ### Update API Reference
 
@@ -869,30 +789,22 @@ https://<workspace-url>/genie/rooms/<space_id>
 ```
 
 
-### Example SQL Query Format
+**For the example SQL query format**, see `REFERENCE.md` → "Example SQL Query Format".
 
-When adding `example_question_sqls`, each example should include:
 
-- `id`: Unique 32-character hex ID
-- `question`: Array with a single natural language question string
-- `sql`: Array of strings representing the SQL query (split by lines)
+## Step M5-B: Guided Walkthrough (User Applies in UI)
 
-```json
-{
-  "id": "c3d4e5f6a7b80000000000000000000c",
-  "question": ["What are total sales by product category?"],
-  "sql": [
-    "SELECT\n",
-    "  p.category,\n",
-    "  SUM(o.quantity * o.unit_price) as total_sales\n",
-    "FROM sales.gold.orders o\n",
-    "JOIN sales.gold.products p ON o.product_id = p.product_id\n",
-    "GROUP BY p.category\n",
-    "ORDER BY total_sales DESC"
-  ]
-}
-```
+Use this mode when the user wants to make changes themselves, or for changes that can only be made in the Genie space UI. Walk the user through each change step by step.
 
+**For each recommended change, provide:**
+1. **Where to go** — exact navigation path in the Genie UI
+2. **What to do** — specific action with the exact values to enter
+3. **Why** — brief rationale so the user understands the impact
+4. **Verification** — how to confirm the change worked
+
+**See `REFERENCE.md` → "UI Walkthrough Templates"** for step-by-step templates covering: prompt matching, hiding columns, column synonyms, benchmarks, example values, and SQL expressions.
+
+**Pacing:** Walk the user through one change at a time. After each change, ask: "Done? Let's move on to the next change." If the user gets stuck, offer to switch to Mode A (Assistant applies) for the API-compatible changes.
 
 ## Step M6: Benchmark and Verify
 
@@ -905,13 +817,4 @@ After applying updates, recommend that the user runs benchmarks to verify improv
 
 ---
 
-## Additional Resources
-
-- [Set Up and Manage a Genie Space](https://docs.databricks.com/aws/en/genie/set-up)
-- [Curate an Effective Genie Space — Best Practices](https://docs.databricks.com/aws/en/genie/best-practices)
-- [Use Parameters in SQL Queries](https://docs.databricks.com/aws/en/genie/query-params)
-- [Use Trusted Assets in Genie Spaces](https://docs.databricks.com/aws/en/genie/trusted-assets)
-- [Use Benchmarks in a Genie Space](https://docs.databricks.com/aws/en/genie/benchmarks)
-- [Troubleshoot Genie Spaces](https://docs.databricks.com/aws/en/genie/troubleshooting)
-- [Genie API Reference](https://docs.databricks.com/api/workspace/genie)
-- [Create Genie Space API](https://docs.databricks.com/api/workspace/genie/createspace)
+**For troubleshooting, error codes, JSON schema reference, UI walkthrough templates, and documentation links, see `REFERENCE.md`.**
