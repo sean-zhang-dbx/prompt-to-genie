@@ -20,7 +20,6 @@ Complete structure for the `serialized_space` configuration. Include only sectio
         "description": ["Daily sales transactions with line-item details"],
         "column_configs": [
           {
-            "id": "aa11bb22cc330000000000000000000a",
             "column_name": "region",
             "description": ["Sales region code: AMER, EMEA, APJ, LATAM"],
             "synonyms": ["area", "territory", "sales region"],
@@ -29,7 +28,6 @@ Complete structure for the `serialized_space` configuration. Include only sectio
             "enable_format_assistance": true
           },
           {
-            "id": "aa11bb22cc330000000000000000000b",
             "column_name": "etl_timestamp",
             "exclude": true,
             "enable_entity_matching": false,
@@ -41,7 +39,6 @@ Complete structure for the `serialized_space` configuration. Include only sectio
         "identifier": "catalog.schema.products",
         "column_configs": [
           {
-            "id": "aa11bb22cc330000000000000000000c",
             "column_name": "category",
             "enable_entity_matching": true,
             "enable_format_assistance": true
@@ -154,7 +151,6 @@ Complete structure for the `serialized_space` configuration. Include only sectio
 | `data_sources.tables[].identifier` | string | Fully qualified table name (`catalog.schema.table`) |
 | `data_sources.tables[].description` | string[] | Space-scoped description override (optional) |
 | `data_sources.tables[].column_configs[]` | array | Per-column configuration (optional — set via API or manage flow) |
-| `data_sources.tables[].column_configs[].id` | string | 32-char lowercase hex ID |
 | `data_sources.tables[].column_configs[].column_name` | string | Column name |
 | `data_sources.tables[].column_configs[].description` | string[] | Contextual description beyond the column name |
 | `data_sources.tables[].column_configs[].synonyms` | string[] | Alternative names users might use for this column |
