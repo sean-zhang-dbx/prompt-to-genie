@@ -20,11 +20,11 @@ Instead of manually configuring Genie spaces through the UI or writing raw API c
 1. In your Databricks workspace, navigate to `/Users/{your-username}/.assistant/skills/`
    - You can open this folder from the Assistant panel: click **Settings** > **Open skills folder**
 2. Click **Create** > **Git folder**
-3. Paste this repository's URL and name the folder **`create-genie-space`**
+3. Paste this repository's URL — the folder will default to **`prompt-to-genie`**, which is the correct skill name
 
 That's it. The skill is now installed at:
 ```
-/Users/{your-username}/.assistant/skills/create-genie-space/SKILL.md
+/Users/{your-username}/.assistant/skills/prompt-to-genie/SKILL.md
 ```
 
 #### Step 2: Add custom instructions (optional but recommended)
@@ -42,7 +42,7 @@ You can find this from the Assistant panel under **Settings** > **User instructi
 
 ### Genie Space Management
 When working with Databricks AI/BI Genie spaces — creating, managing, auditing, diagnosing issues, or optimizing:
-- **Always load first**: `/Users/{username}/.assistant/skills/create-genie-space/SKILL.md`
+- **Always load first**: `/Users/{username}/.assistant/skills/prompt-to-genie/SKILL.md`
 - This contains the most up-to-date API documentation, error codes, best practices, and troubleshooting guidance
 - Use the **Create a New Space** workflow when the user wants to build a new Genie space
 - Use the **Manage an Existing Space** workflow when the user wants to review, audit, fix, or optimize an existing space
