@@ -28,6 +28,7 @@ w = WorkspaceClient()
 # to True for every string/category column users will filter on.
 tables = sorted([
     {
+        "id": secrets.token_hex(16),
         "identifier": "catalog.schema.orders",
         "description": ["Daily sales transactions with line-item details"],
         "column_configs": sorted([
@@ -53,6 +54,7 @@ tables = sorted([
         ], key=lambda x: x["column_name"]),
     },
     {
+        "id": secrets.token_hex(16),
         "identifier": "catalog.schema.products",
         "description": ["Product catalog with categories and pricing"],
         "column_configs": sorted([
@@ -69,7 +71,7 @@ tables = sorted([
 # Metric views — pre-defined metrics, dimensions, and aggregations
 # Remove this list if not using metric views
 metric_views = sorted([
-    {"identifier": "catalog.schema.revenue_metrics", "description": ["Revenue metrics by product and region"]},
+    {"id": secrets.token_hex(16), "identifier": "catalog.schema.revenue_metrics", "description": ["Revenue metrics by product and region"]},
 ], key=lambda x: x["identifier"])
 
 # Sample questions for business users (one question per entry)
@@ -103,31 +105,35 @@ example_sqls = [
 ]
 
 # SQL expressions — measures, filters, dimensions
+# IMPORTANT: sql is a plain string (NOT an array) for sql_snippets.
 # Optional fields on all types: synonyms, instruction, comment, display_name
 sql_snippet_measures = [
     {
         "alias": "total_revenue",
         "display_name": "Total Revenue",
-        "sql": ["SUM(amount)"],
+        "sql": "SUM(quantity * unit_price)",
         "synonyms": ["revenue", "sales", "total sales"],
         "instruction": ["Use for any revenue aggregation"],
+        "comment": ["Revenue includes all non-cancelled order line items"],
     },
 ]
 sql_snippet_filters = [
     {
         "display_name": "high value",
-        "sql": ["amount > 1000"],
+        "sql": "WHERE amount > 1000",
         "synonyms": ["big deal", "large order"],
         "instruction": ["Apply when users ask about high-value or large orders"],
+        "comment": ["Threshold aligned with finance team's definition"],
     },
 ]
 sql_snippet_expressions = [
     {
         "alias": "order_year",
         "display_name": "Order Year",
-        "sql": ["YEAR(order_date)"],
+        "sql": "YEAR(order_date)",
         "synonyms": ["year"],
         "instruction": ["Use for year-based grouping"],
+        "comment": ["Standard date dimension for annual reporting"],
     },
 ]
 
@@ -148,7 +154,10 @@ join_specs = [
 # SQL functions — Unity Catalog UDFs registered as trusted assets
 # Remove this list if not using UDFs
 sql_functions = [
-    {"identifier": "catalog.schema.fiscal_quarter"},
+    {
+        "identifier": "catalog.schema.fiscal_quarter",
+        "description": "Calculates the fiscal quarter from a date (fiscal year starts April 1)",
+    },
 ]
 
 # Space metadata

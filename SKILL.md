@@ -201,16 +201,18 @@ Use SQL expressions to define frequently used business terms as reusable definit
 
 - **Measures** (`sql_snippets.measures`): KPIs and aggregation metrics
   ```json
-  {"id": "...", "alias": "total_revenue", "sql": ["SUM(amount)"]}
+  {"id": "...", "alias": "total_revenue", "sql": "SUM(quantity * unit_price)"}
   ```
 - **Filters** (`sql_snippets.filters`): Common filtering conditions (boolean)
   ```json
-  {"id": "...", "display_name": "high value", "sql": ["amount > 1000"]}
+  {"id": "...", "display_name": "high value", "sql": "WHERE amount > 1000"}
   ```
 - **Dimensions** (`sql_snippets.expressions`): Attributes for grouping and analysis
   ```json
-  {"id": "...", "alias": "order_year", "sql": ["YEAR(order_date)"]}
+  {"id": "...", "alias": "order_year", "sql": "YEAR(order_date)"}
   ```
+
+> **Important:** The `sql` field in `sql_snippets` is a **plain string**, not an array. This differs from `example_question_sqls[].sql` which is a `string[]` (array of line strings).
 
 **Good candidates for SQL expressions:**
 - Metrics: gross margin, conversion rate, revenue
@@ -413,11 +415,11 @@ Build the `serialized_space` JSON with all gathered information. Below is the co
   },
   "data_sources": {
     "tables": [
-      {"identifier": "catalog.schema.table1", "description": ["Description of table1"]},
-      {"identifier": "catalog.schema.table2"}
+      {"id": "a0b1c2d3e4f50000000000000000000a", "identifier": "catalog.schema.table1", "description": ["Description of table1"]},
+      {"id": "a0b1c2d3e4f50000000000000000000b", "identifier": "catalog.schema.table2"}
     ],
     "metric_views": [
-      {"identifier": "catalog.schema.metric_view1", "description": ["Revenue metrics"]}
+      {"id": "b0c1d2e3f4a50000000000000000000a", "identifier": "catalog.schema.metric_view1", "description": ["Revenue metrics"]}
     ]
   },
   "instructions": {
@@ -437,7 +439,8 @@ Build the `serialized_space` JSON with all gathered information. Below is the co
     "sql_functions": [
       {
         "id": "d4e5f6a7b8c90000000000000000000d",
-        "identifier": "catalog.schema.fiscal_quarter"
+        "identifier": "catalog.schema.fiscal_quarter",
+        "description": "Calculates the fiscal quarter from a date"
       }
     ],
     "join_specs": [
@@ -450,13 +453,13 @@ Build the `serialized_space` JSON with all gathered information. Below is the co
     ],
     "sql_snippets": {
       "filters": [
-        {"id": "f6a7b8c9d0e10000000000000000000f", "sql": ["amount > 1000"], "display_name": "high value"}
+        {"id": "f6a7b8c9d0e10000000000000000000f", "sql": "WHERE amount > 1000", "display_name": "high value"}
       ],
       "expressions": [
-        {"id": "a7b8c9d0e1f20000000000000000000a", "alias": "order_year", "sql": ["YEAR(order_date)"]}
+        {"id": "a7b8c9d0e1f20000000000000000000a", "alias": "order_year", "sql": "YEAR(order_date)"}
       ],
       "measures": [
-        {"id": "b8c9d0e1f2a30000000000000000000b", "alias": "total_revenue", "sql": ["SUM(amount)"]}
+        {"id": "b8c9d0e1f2a30000000000000000000b", "alias": "total_revenue", "sql": "SUM(quantity * unit_price)"}
       ]
     }
   },
@@ -478,23 +481,24 @@ Build the `serialized_space` JSON with all gathered information. Below is the co
 | Section | Field | Description |
 |---------|-------|-------------|
 | `config.sample_questions[]` | `id`, `question` | Starter questions shown to users. One question per entry. |
-| `data_sources.tables[]` | `identifier`, `description` (optional) | Unity Catalog tables. `description` is a space-scoped override (array of strings). |
-| `data_sources.metric_views[]` | `identifier`, `description` (optional) | Metric views with pre-defined metrics, dimensions, and aggregations. |
+| `data_sources.tables[]` | `id`, `identifier`, `description` (optional) | Unity Catalog tables. `id` is 32-char hex. `description` is a space-scoped override (array of strings). |
+| `data_sources.metric_views[]` | `id`, `identifier`, `description` (optional) | Metric views with pre-defined metrics, dimensions, and aggregations. `id` is 32-char hex. |
 | `instructions.text_instructions[]` | `id`, `content` | General guidance (max 1 per space). `content` is an array of strings. |
-| `instructions.example_question_sqls[]` | `id`, `question`, `sql` | Example SQL queries. One question per entry. `sql` is an array of line strings with `\n`. |
-| `instructions.sql_functions[]` | `id`, `identifier` | Unity Catalog UDFs referenced by their full path. |
-| `instructions.join_specs[]` | `id`, `left`, `right`, `sql` | Join relationships between tables. `sql` is the join condition. |
-| `instructions.sql_snippets.filters[]` | `id`, `sql`, `display_name` | Filter definitions (boolean conditions). |
-| `instructions.sql_snippets.expressions[]` | `id`, `sql`, `alias` | Dimension definitions (grouping attributes). |
-| `instructions.sql_snippets.measures[]` | `id`, `sql`, `alias` | Measure definitions (aggregation KPIs). |
+| `instructions.example_question_sqls[]` | `id`, `question`, `sql` | Example SQL queries. One question per entry. `sql` is an **array** of line strings with `\n`. |
+| `instructions.sql_functions[]` | `id`, `identifier`, `description` | Unity Catalog UDFs. `description` is a plain string (not array). |
+| `instructions.join_specs[]` | `id`, `left`, `right`, `sql` | Join relationships between tables. `sql` is the join condition (array). |
+| `instructions.sql_snippets.filters[]` | `id`, `sql`, `display_name` | Filter definitions. `sql` is a **plain string** (not array). |
+| `instructions.sql_snippets.expressions[]` | `id`, `sql`, `alias` | Dimension definitions. `sql` is a **plain string** (not array). |
+| `instructions.sql_snippets.measures[]` | `id`, `sql`, `alias` | Measure definitions. `sql` is a **plain string** (not array). |
 | `benchmarks.questions[]` | `id`, `question`, `answer` | Benchmark questions with SQL ground truth. |
 
 **Important Notes:**
 - `version`: **Required**. Use `2` for new spaces
 - `question`: Must be an array with a **single question string** per entry
-- `sql` (in `example_question_sqls`): Must be an array of strings. **Each SQL clause should be a separate element** with `\n` at the end:
+- `sql` (in `example_question_sqls`): Must be an **array of strings**. Each SQL clause should be a separate element with `\n` at the end:
   - Correct: `["SELECT\n", "  col1,\n", "  col2\n", "FROM table\n", "WHERE col1 > 0"]`
   - Wrong: `["SELECT col1, col2FROM tableWHERE col1 > 0"]`
+- `sql` (in `sql_snippets`): Must be a **plain string** (NOT an array): `"SUM(quantity * unit_price)"`
 - **ID Format**: All IDs must be exactly 32 lowercase hexadecimal characters (no hyphens)
 - **Sorting**: All arrays of objects with `id` fields must be sorted alphabetically by `id`. Tables must be sorted by `identifier`.
 - **Include only what's needed**: Omit sections that don't apply (e.g., skip `metric_views` if none, skip `benchmarks` if not creating them yet)

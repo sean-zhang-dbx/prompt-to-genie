@@ -67,6 +67,12 @@ if join_specs:
 total_snippets = len(snippet_measures) + len(snippet_filters) + len(snippet_expressions)
 if total_snippets:
     print(f"\nSQL Expressions: {total_snippets} (measures: {len(snippet_measures)}, filters: {len(snippet_filters)}, dimensions: {len(snippet_expressions)})")
+    for m in snippet_measures:
+        print(f"  - [measure] {m.get('alias', '?')}: {m.get('sql', '?')}")
+    for f in snippet_filters:
+        print(f"  - [filter] {f.get('display_name', '?')}: {f.get('sql', '?')}")
+    for e in snippet_expressions:
+        print(f"  - [dimension] {e.get('alias', '?')}: {e.get('sql', '?')}")
 print(f"\nText Instructions: {len(text_instr)} block(s)")
 if text_instr:
     for line in text_instr[0].get("content", []):

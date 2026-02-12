@@ -16,6 +16,7 @@ Complete structure for the `serialized_space` configuration. Include only sectio
   "data_sources": {
     "tables": [
       {
+        "id": "a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
         "identifier": "catalog.schema.orders",
         "description": ["Daily sales transactions with line-item details"],
         "column_configs": [
@@ -38,6 +39,7 @@ Complete structure for the `serialized_space` configuration. Include only sectio
         ]
       },
       {
+        "id": "b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6",
         "identifier": "catalog.schema.products",
         "column_configs": [
           {
@@ -50,7 +52,11 @@ Complete structure for the `serialized_space` configuration. Include only sectio
       }
     ],
     "metric_views": [
-      {"identifier": "catalog.schema.revenue_metrics", "description": ["Revenue metrics"]}
+      {
+        "id": "c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7",
+        "identifier": "catalog.schema.revenue_metrics",
+        "description": ["Revenue metrics"]
+      }
     ]
   },
   "instructions": {
@@ -71,7 +77,8 @@ Complete structure for the `serialized_space` configuration. Include only sectio
     "sql_functions": [
       {
         "id": "d4e5f6a7b8c90000000000000000000d",
-        "identifier": "catalog.schema.fiscal_quarter"
+        "identifier": "catalog.schema.fiscal_quarter",
+        "description": "Calculates the fiscal quarter from a date (fiscal year starts April 1)"
       }
     ],
     "join_specs": [
@@ -90,7 +97,7 @@ Complete structure for the `serialized_space` configuration. Include only sectio
         {
           "id": "f6a7b8c9d0e10000000000000000000f",
           "display_name": "high value",
-          "sql": ["amount > 1000"],
+          "sql": "WHERE amount > 1000",
           "synonyms": ["big deal", "large order"],
           "instruction": ["Apply when users ask about high-value or large orders"],
           "comment": ["Threshold aligned with finance team's definition"]
@@ -101,9 +108,10 @@ Complete structure for the `serialized_space` configuration. Include only sectio
           "id": "a7b8c9d0e1f20000000000000000000a",
           "alias": "order_year",
           "display_name": "Order Year",
-          "sql": ["YEAR(order_date)"],
+          "sql": "YEAR(order_date)",
           "synonyms": ["year"],
-          "instruction": ["Use for any year-based grouping of orders"]
+          "instruction": ["Use for any year-based grouping of orders"],
+          "comment": ["Standard date dimension for annual reporting"]
         }
       ],
       "measures": [
@@ -111,7 +119,7 @@ Complete structure for the `serialized_space` configuration. Include only sectio
           "id": "b8c9d0e1f2a30000000000000000000b",
           "alias": "total_revenue",
           "display_name": "Total Revenue",
-          "sql": ["SUM(amount)"],
+          "sql": "SUM(quantity * unit_price)",
           "synonyms": ["revenue", "sales", "total sales"],
           "instruction": ["Use for any revenue aggregation"],
           "comment": ["Revenue includes all non-cancelled order line items"]
@@ -146,6 +154,7 @@ Complete structure for the `serialized_space` configuration. Include only sectio
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `data_sources.tables[].id` | string | 32-char lowercase hex ID |
 | `data_sources.tables[].identifier` | string | Fully qualified table name (`catalog.schema.table`) |
 | `data_sources.tables[].description` | string[] | Space-scoped description override (optional) |
 | `data_sources.tables[].column_configs[]` | array | Per-column configuration (optional — set via API or manage flow) |
@@ -156,6 +165,7 @@ Complete structure for the `serialized_space` configuration. Include only sectio
 | `data_sources.tables[].column_configs[].exclude` | boolean | Hide this column from Genie (default: false) |
 | `data_sources.tables[].column_configs[].enable_format_assistance` | boolean | **(v2 only)** Provide representative values so Genie understands data types and formatting. Auto-enabled via UI but **OFF by default via API** — must be set explicitly. Must be `true` for entity matching to work. |
 | `data_sources.tables[].column_configs[].enable_entity_matching` | boolean | **(v2 only)** Match user terms to actual column values (e.g., "California" → "CA"). Auto-enabled via UI but **OFF by default via API** — must be set explicitly. Requires `enable_format_assistance: true`. Supports up to 120 columns, 1,024 distinct values per column (max 127 chars each). |
+| `data_sources.metric_views[].id` | string | 32-char lowercase hex ID |
 | `data_sources.metric_views[].identifier` | string | Fully qualified metric view name |
 | `data_sources.metric_views[].description` | string[] | What the metric view computes |
 
@@ -187,9 +197,14 @@ Complete structure for the `serialized_space` configuration. Include only sectio
 | `instructions.example_question_sqls[].question` | string[] | Single natural language question |
 | `instructions.example_question_sqls[].sql` | string[] | SQL query split by lines with `\n` |
 | `instructions.example_question_sqls[].usage_guidance` | string[] | When Genie should apply this pattern (optional but recommended) |
-| `instructions.example_question_sqls[].parameters` | array | Parameterized values (optional). Each has `name`, `description`, `type_hint`, `default_value`. |
+| `instructions.example_question_sqls[].parameters` | array | Parameterized values (optional) |
+| `instructions.example_question_sqls[].parameters[].name` | string | Parameter name (matches `:name` in SQL) |
+| `instructions.example_question_sqls[].parameters[].description` | string[] | What the parameter represents |
+| `instructions.example_question_sqls[].parameters[].type_hint` | string | Data type hint (e.g., `"STRING"`, `"INT"`, `"DATE"`) |
+| `instructions.example_question_sqls[].parameters[].default_value` | object | Default value with `values` array (e.g., `{"values": ["month"]}`) |
 | `instructions.sql_functions[].id` | string | 32-char hex ID |
 | `instructions.sql_functions[].identifier` | string | Fully qualified UDF name |
+| `instructions.sql_functions[].description` | string | What the function does (plain string, not array) |
 | `instructions.join_specs[].id` | string | 32-char hex ID |
 | `instructions.join_specs[].left` | object | Left table: `identifier` (required), `alias` (optional) |
 | `instructions.join_specs[].right` | object | Right table: `identifier` (required), `alias` (optional) |
@@ -213,9 +228,11 @@ All three snippet types (`filters`, `expressions`, `measures`) support these opt
 
 | Type | Required Fields |
 |------|----------------|
-| `sql_snippets.filters[]` | `id`, `sql`, `display_name` |
-| `sql_snippets.expressions[]` | `id`, `sql`, `alias` |
-| `sql_snippets.measures[]` | `id`, `sql`, `alias` |
+| `sql_snippets.filters[]` | `id`, `sql` (string), `display_name` |
+| `sql_snippets.expressions[]` | `id`, `sql` (string), `alias` |
+| `sql_snippets.measures[]` | `id`, `sql` (string), `alias` |
+
+> **Important:** The `sql` field in `sql_snippets` is a **plain string**, NOT an array. This is different from `example_question_sqls[].sql` which is a `string[]` (array of line strings).
 
 ### benchmarks
 
@@ -233,9 +250,12 @@ All three snippet types (`filters`, `expressions`, `measures`) support these opt
 
 - `version`: **Required**. Use `2` for new spaces
 - `question`: Must be an array with a **single question string** per entry
-- `sql` (in `example_question_sqls`): Must be an array of strings. **Each SQL clause should be a separate element** with `\n` at the end:
+- `sql` (in `example_question_sqls`): Must be an **array of strings**. Each SQL clause should be a separate element with `\n` at the end:
   - Correct: `["SELECT\n", "  col1,\n", "  col2\n", "FROM table\n", "WHERE col1 > 0"]`
   - Wrong: `["SELECT col1, col2FROM tableWHERE col1 > 0"]`
+- `sql` (in `sql_snippets`): Must be a **plain string** (NOT an array). This is the SQL fragment or expression itself:
+  - Correct: `"SUM(quantity * unit_price)"`
+  - Wrong: `["SUM(quantity * unit_price)"]`
 - **ID Format**: All IDs must be exactly 32 lowercase hexadecimal characters (no hyphens)
 - **Sorting**: All arrays of objects with `id` fields must be sorted alphabetically by `id`. Tables must be sorted by `identifier`.
 - **Include only what's needed**: Omit sections that don't apply (e.g., skip `metric_views` if none, skip `benchmarks` if not creating them yet)

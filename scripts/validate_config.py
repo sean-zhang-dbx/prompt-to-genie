@@ -147,6 +147,11 @@ def validate_config(config: dict) -> list[dict]:
         check_sorted("data_sources.tables", tables, lambda x: x.get("identifier", ""), "identifier")
         for i, tbl in enumerate(tables):
             p = f"data_sources.tables[{i}]"
+            tbl_id = tbl.get("id")
+            if tbl_id is None:
+                error(f"{p}.id", "Missing required 'id' field on table")
+            else:
+                check_id(f"{p}.id", tbl_id)
             ident = tbl.get("identifier")
             if ident is None:
                 error(f"{p}.identifier", "Missing required 'identifier' field")
@@ -179,6 +184,11 @@ def validate_config(config: dict) -> list[dict]:
         check_sorted("data_sources.metric_views", metric_views, lambda x: x.get("identifier", ""), "identifier")
         for i, mv in enumerate(metric_views):
             p = f"data_sources.metric_views[{i}]"
+            mv_id = mv.get("id")
+            if mv_id is None:
+                error(f"{p}.id", "Missing required 'id' field on metric view")
+            else:
+                check_id(f"{p}.id", mv_id)
             ident = mv.get("identifier")
             if ident is None:
                 error(f"{p}.identifier", "Missing required 'identifier' field")
@@ -284,6 +294,8 @@ def validate_config(config: dict) -> list[dict]:
                 instruction_ids.append((sfid, p))
             if not sf.get("identifier"):
                 error(f"{p}.identifier", "Missing required 'identifier' field")
+            if not sf.get("description"):
+                warning(f"{p}.description", "Missing 'description' — adding a description helps Genie understand when to use this function")
 
     # join_specs
     join_specs = instructions.get("join_specs", [])
@@ -333,7 +345,14 @@ def validate_config(config: dict) -> list[dict]:
                     check_id(f"{p}.id", snid)
                     instruction_ids.append((snid, p))
                 sql = sn.get("sql")
-                if sql is None or (isinstance(sql, list) and len(sql) == 0):
+                if sql is None:
+                    error(f"{p}.sql", "Missing required 'sql' field")
+                elif isinstance(sql, list):
+                    error(f"{p}.sql", "sql_snippets sql must be a plain string, not an array. "
+                          "Example: \"SUM(amount)\" not [\"SUM(amount)\"]")
+                elif not isinstance(sql, str):
+                    error(f"{p}.sql", f"sql must be a string, got {type(sql).__name__}")
+                elif len(sql.strip()) == 0:
                     error(f"{p}.sql", "SQL field must not be empty")
                 # Check for required name/alias fields
                 if snippet_type == "filters":
