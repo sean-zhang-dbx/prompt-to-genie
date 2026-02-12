@@ -151,12 +151,14 @@ DESCRIBE TABLE EXTENDED catalog.schema.table_name;
 
 If column descriptions are missing or unclear, suggest the user add them in Unity Catalog first — this significantly improves Genie's response accuracy.
 
+**Column-level configuration via API:** You can also set per-column metadata directly in the `serialized_space` using `column_configs` on each table — including descriptions, synonyms, hiding columns, and entity matching. See `references/schema.md` → "Field Reference → data_sources" for all available fields and their types.
+
 ### 2d: Define Table Relationships
 
 If foreign key references are not defined in Unity Catalog, Genie may not know how to join tables correctly. Recommend users:
 
 1. **Define foreign keys in Unity Catalog** when possible (most reliable)
-2. **Define join relationships in the Genie space's knowledge store** — useful for complex join scenarios (self-joins, etc.) or when you can't modify the underlying tables
+2. **Define join relationships via `join_specs`** in the config — include `alias`, `join_type`, `comment` (business context), and `instruction` (when to use). For multi-column joins, create separate join specs with comments indicating they should be used together.
 3. **Provide example SQL queries with correct joins** as a fallback
 4. **Pre-join tables into views** if none of the above work
 
@@ -197,16 +199,18 @@ Use SQL expressions to define frequently used business terms as reusable definit
 
 - **Measures** (`sql_snippets.measures`): KPIs and aggregation metrics
   ```json
-  {"id": "...", "alias": "total_revenue", "sql": ["SUM(amount)"]}
+  {"id": "...", "alias": "total_revenue", "display_name": "Total Revenue", "sql": ["SUM(amount)"], "synonyms": ["revenue", "sales"], "instruction": ["Use for any revenue aggregation"]}
   ```
 - **Filters** (`sql_snippets.filters`): Common filtering conditions (boolean)
   ```json
-  {"id": "...", "display_name": "high value", "sql": ["amount > 1000"]}
+  {"id": "...", "display_name": "high value", "sql": ["amount > 1000"], "synonyms": ["big deal", "large order"], "instruction": ["Apply when users ask about high-value orders"]}
   ```
 - **Dimensions** (`sql_snippets.expressions`): Attributes for grouping and analysis
   ```json
-  {"id": "...", "alias": "order_year", "sql": ["YEAR(order_date)"]}
+  {"id": "...", "alias": "order_year", "display_name": "Order Year", "sql": ["YEAR(order_date)"], "synonyms": ["year"], "instruction": ["Use for year-based grouping"]}
   ```
+
+**Optional but recommended fields** on all snippet types: `synonyms`, `instruction`, `comment`. See `references/schema.md` → "sql_snippets" for the full field reference.
 
 **Good candidates for SQL expressions:**
 - Metrics: gross margin, conversion rate, revenue
@@ -231,7 +235,7 @@ Use complete example SQL queries for hard-to-interpret, multi-part, or complex q
 
 **Use one question per SQL entry.** Each example SQL query should map to exactly one natural language question. If you want to cover multiple phrasings of the same question, create separate entries — each with its own question string and the same SQL.
 
-**Critical formatting rule for `sql`:** Each SQL clause should be a **separate string element** in the array with `\n` at the end. Never concatenate SQL clauses into one string.
+**Critical:** Follow the SQL formatting rules in `references/schema.md` → "Important Notes" — each SQL clause must be a separate array element with `\n` at the end.
 
 ```json
 {
@@ -244,10 +248,12 @@ Use complete example SQL queries for hard-to-interpret, multi-part, or complex q
     "JOIN catalog.schema.products p ON o.product_id = p.product_id\n",
     "GROUP BY p.category\n",
     "ORDER BY total_sales DESC"
-  ]
+  ],
+  "usage_guidance": ["Use this pattern for any breakdown of sales metrics by product attribute"]
 }
 ```
 
+**`usage_guidance`** (optional but recommended): Tells Genie when to apply this query pattern. Include it on complex examples so Genie knows which keywords or question types should trigger it.
 
 #### Parameterized Queries
 
@@ -381,22 +387,15 @@ If the user doesn't know their warehouse ID or workspace URL, help them discover
 
 **Reference script:** See `scripts/discover_resources.py` for the complete code. Part 1 lists all serverless SQL warehouses (name, ID, state, size) and prints the workspace URL. Part 2 audits table metadata quality for Genie-readiness.
 
-**Important:** Genie spaces require a **serverless** SQL warehouse (pro warehouses also work). The script filters to show only serverless warehouses.
+**Important:** Genie spaces require a **pro or serverless** SQL warehouse (serverless recommended for performance). The script filters to show only serverless warehouses.
 
 
 ## Step 5: Generate Configuration
 
-Build the `serialized_space` JSON with all gathered information. **See `REFERENCE.md` → "serialized_space JSON Schema"** for the complete template, field reference table, and formatting rules.
+Build the `serialized_space` JSON with all gathered information.
 
-**Key rules to remember:**
-- `version`: Must be `2`
-- **IDs**: 32 lowercase hex characters, generated via `secrets.token_hex(16)`, unique within each collection
-- **Sorting**: All arrays with `id` fields sorted alphabetically by `id`; tables sorted by `identifier`
-- **SQL format**: Each SQL clause is a separate array element with `\n` at the end
-- **One question per entry**: Each `sample_questions` and `example_question_sqls` entry has exactly one question string
-- **Include only what's needed**: Omit sections that don't apply
-
-**Reference script:** See `scripts/create_space.py` for the complete template with all sections.
+- **Full JSON schema, field reference, and formatting rules:** See `references/schema.md`
+- **Code template with all sections:** See `scripts/create_space.py`
 
 
 ## Step 6: Create the Space
@@ -589,7 +588,7 @@ Before creating the space, verify:
 - [ ] Tables exist and user has SELECT permission
 - [ ] **Data profiling complete** (Step 2b) — actual columns, values, and date ranges inspected and confirmed with user
 - [ ] Column names and descriptions are clear and well-annotated in Unity Catalog
-- [ ] Warehouse ID is valid and is a serverless SQL warehouse
+- [ ] Warehouse ID is valid and is a pro or serverless SQL warehouse
 - [ ] Parent path exists in workspace
 - [ ] Sample questions are business-friendly and cover common use cases
 - [ ] **SQL expressions** (`sql_snippets`) are defined for key metrics, filters, and dimensions
@@ -602,7 +601,7 @@ Before creating the space, verify:
 
 ## Error Handling
 
-If the API returns an error, see `REFERENCE.md` → "Error Handling" for the complete status code table and common error scenarios with solutions. The most frequent issues are:
+If the API returns an error, see `references/troubleshooting.md` for the complete status code table and common error scenarios with solutions. The most frequent issues are:
 - **400 BAD_REQUEST**: Usually a sorting, ID format, or JSON structure issue — run `scripts/validate_config.py` first
 - **403 PERMISSION_DENIED**: Check permissions on the warehouse and tables
 - **401 UNAUTHORIZED**: Check authentication credentials
@@ -671,50 +670,19 @@ Work through this checklist automatically after retrieving the configuration. Fl
 
 ## Step M3: Diagnose Reported Issues
 
-If the user reports a specific problem, use this decision tree to triage:
+If the user reports a specific problem, use this quick-reference decision tree to triage. For detailed symptom descriptions and step-by-step fixes, see `references/troubleshooting.md`.
 
-**"Genie uses the wrong table or column"**
-1. Check table/column descriptions — do they match user terminology?
-2. Look for overlapping column names across tables
-3. Recommend: Add example SQL queries showing correct usage, hide confusing columns
-
-**"Genie misunderstands our terminology"**
-1. Check if the term is defined in text instructions or SQL expressions
-2. Check column synonyms in the knowledge store
-3. Recommend: Add a SQL expression or text instruction mapping the term to the correct data concept
-
-**"Genie filters on wrong values"** (e.g., "California" vs "CA")
-1. Check if prompt matching is enabled for the relevant column
-2. Check if example values are configured in the knowledge store
-3. Recommend: Enable prompt matching, add value dictionaries, refresh values if data changed
-
-**"Genie joins tables incorrectly"**
-1. Check for foreign key constraints in Unity Catalog
-2. Check join relationships in the knowledge store
-3. Recommend: Define join relationships or add example SQL queries with correct joins
-
-**"Metric calculations are wrong"**
-1. Check if the metric is defined as a SQL expression
-2. Check if there's an example SQL query computing it correctly
-3. Check for pre-aggregated tables that might be double-counted
-4. Recommend: Add SQL expressions for metrics, or example SQL for complex calculations
-
-**"Timezone/date calculations are wrong"**
-1. Check text instructions for timezone guidance
-2. Recommend: Add explicit instructions like "Time zones are in UTC. Convert using convert_timezone('UTC', 'America/Los_Angeles', <column>)."
-
-**"Genie ignores my instructions"**
-1. Check for conflicting instructions across types
-2. Check if the instruction count is high (noise drowns out signal)
-3. Recommend: Add example SQL (most effective), hide irrelevant columns, simplify instruction set, start a new chat for testing
-
-**"Responses are slow or timing out"**
-1. Check query history for slow queries
-2. Recommend: Use trusted assets for complex logic, reduce example SQL length, start new chat
-
-**"Token limit warning"**
-1. Audit column count and descriptions for bloat
-2. Recommend: Hide unnecessary columns, streamline descriptions, prune redundant example SQL
+| Reported Problem | First Check | Quick Action |
+|-----------------|-------------|--------------|
+| Wrong table or column | Table/column descriptions match user terms? Overlapping column names? | Add example SQL showing correct usage; hide confusing columns |
+| Misunderstood terminology | Term defined in SQL expressions or text instructions? Column synonyms set? | Add SQL expression or text instruction mapping term → data concept |
+| Wrong filter values (e.g., "California" vs "CA") | Prompt matching enabled? Example values configured? | Enable prompt matching; add value dictionaries |
+| Incorrect joins | Foreign keys defined? Join specs or knowledge store entries? | Define join relationships; add example SQL with correct joins |
+| Wrong metric calculations | Metric defined as SQL expression? Example SQL correct? Pre-aggregated tables? | Add SQL expressions for metrics; add example SQL for complex calculations |
+| Wrong timezone/date calculations | Text instructions cover timezone? | Add explicit timezone instructions (e.g., `convert_timezone`) |
+| Ignoring instructions | Conflicting instructions? Instruction count too high? | Add example SQL (most effective); hide irrelevant columns; simplify instruction set |
+| Slow responses / timeouts | Slow queries in query history? | Use trusted assets; reduce example SQL length; start new chat |
+| Token limit warning | Too many columns or verbose descriptions? | Hide unnecessary columns; streamline descriptions; prune redundant example SQL |
 
 ## Step M4: Recommend Optimizations
 
@@ -789,7 +757,7 @@ https://<workspace-url>/genie/rooms/<space_id>
 ```
 
 
-**For the example SQL query format**, see `REFERENCE.md` → "Example SQL Query Format".
+**For the example SQL query format**, see Step 4b in the Create workflow above, or the `example_question_sqls` section in `references/schema.md`.
 
 
 ## Step M5-B: Guided Walkthrough (User Applies in UI)
@@ -802,7 +770,7 @@ Use this mode when the user wants to make changes themselves, or for changes tha
 3. **Why** — brief rationale so the user understands the impact
 4. **Verification** — how to confirm the change worked
 
-**See `REFERENCE.md` → "UI Walkthrough Templates"** for step-by-step templates covering: prompt matching, hiding columns, column synonyms, benchmarks, example values, and SQL expressions.
+**See `references/ui_walkthroughs.md`** for step-by-step templates covering: prompt matching, hiding columns, column synonyms, benchmarks, example values, and SQL expressions.
 
 **Pacing:** Walk the user through one change at a time. After each change, ask: "Done? Let's move on to the next change." If the user gets stuck, offer to switch to Mode A (Assistant applies) for the API-compatible changes.
 
@@ -817,4 +785,4 @@ After applying updates, recommend that the user runs benchmarks to verify improv
 
 ---
 
-**For troubleshooting, error codes, JSON schema reference, UI walkthrough templates, and documentation links, see `REFERENCE.md`.**
+**Reference files:** `references/schema.md` (JSON schema, field reference, formatting rules) · `references/troubleshooting.md` (error codes, troubleshooting) · `references/ui_walkthroughs.md` (UI step-by-step guides)

@@ -18,16 +18,17 @@ w = WorkspaceClient()
 # --- CONFIGURE THESE VALUES ---
 
 # Tables to include (sorted alphabetically by identifier)
-# Optional "description" field overrides the Unity Catalog description for this space only
+# "description" overrides the Unity Catalog description for this space only
 tables = sorted([
-    {"identifier": "catalog.schema.table1", "description": ["Description of table1"]},
-    {"identifier": "catalog.schema.table2"},
+    {"identifier": "catalog.schema.orders", "description": ["Daily sales transactions with line-item details"]},
+    {"identifier": "catalog.schema.products", "description": ["Product catalog with categories and pricing"]},
 ], key=lambda x: x["identifier"])
 
-# Metric views (optional) — pre-defined metrics, dimensions, and aggregations
-# metric_views = sorted([
-#     {"identifier": "catalog.schema.metric_view1", "description": ["Revenue metrics"]},
-# ], key=lambda x: x["identifier"])
+# Metric views — pre-defined metrics, dimensions, and aggregations
+# Remove this list if not using metric views
+metric_views = sorted([
+    {"identifier": "catalog.schema.revenue_metrics", "description": ["Revenue metrics by product and region"]},
+], key=lambda x: x["identifier"])
 
 # Sample questions for business users (one question per entry)
 sample_questions_text = [
@@ -42,6 +43,7 @@ text_instruction_lines = [
 ]
 
 # Example SQL queries (one question per SQL entry)
+# usage_guidance tells Genie when to apply this query pattern
 example_sqls = [
     {
         "question": ["What are total sales by product category?"],
@@ -54,33 +56,58 @@ example_sqls = [
             "GROUP BY p.category\n",
             "ORDER BY total_sales DESC",
         ],
+        "usage_guidance": ["Use this pattern for any breakdown of sales metrics by product attribute"],
     },
 ]
 
 # SQL expressions — measures, filters, dimensions
+# Optional fields on all types: synonyms, instruction, comment, display_name
 sql_snippet_measures = [
-    {"alias": "total_revenue", "sql": ["SUM(amount)"]},
+    {
+        "alias": "total_revenue",
+        "display_name": "Total Revenue",
+        "sql": ["SUM(amount)"],
+        "synonyms": ["revenue", "sales", "total sales"],
+        "instruction": ["Use for any revenue aggregation"],
+    },
 ]
 sql_snippet_filters = [
-    {"display_name": "high value", "sql": ["amount > 1000"]},
+    {
+        "display_name": "high value",
+        "sql": ["amount > 1000"],
+        "synonyms": ["big deal", "large order"],
+        "instruction": ["Apply when users ask about high-value or large orders"],
+    },
 ]
 sql_snippet_expressions = [
-    {"alias": "order_year", "sql": ["YEAR(order_date)"]},
+    {
+        "alias": "order_year",
+        "display_name": "Order Year",
+        "sql": ["YEAR(order_date)"],
+        "synonyms": ["year"],
+        "instruction": ["Use for year-based grouping"],
+    },
 ]
 
-# Join specifications (optional)
-# join_specs = [
-#     {
-#         "left": {"identifier": "catalog.schema.orders"},
-#         "right": {"identifier": "catalog.schema.customers"},
-#         "sql": ["orders.customer_id = customers.customer_id"],
-#     },
-# ]
+# Join specifications — how tables relate to each other
+# For multi-column joins, create separate join specs (compound AND/OR not supported in sql)
+# Remove this list if tables have foreign keys defined in Unity Catalog
+join_specs = [
+    {
+        "left": {"identifier": "catalog.schema.orders", "alias": "o"},
+        "right": {"identifier": "catalog.schema.products", "alias": "p"},
+        "join_type": "INNER JOIN",
+        "sql": ["o.product_id = p.product_id"],
+        "comment": ["Link orders to product details"],
+        "instruction": ["Use this join for any question about sales by product attribute"],
+    },
+]
 
-# SQL functions (Unity Catalog UDFs, optional)
-# sql_functions = [
-#     {"identifier": "catalog.schema.fiscal_quarter"},
-# ]
+# SQL functions — Unity Catalog UDFs registered as trusted assets
+# Remove this list if not using UDFs
+sql_functions = [
+    {"identifier": "catalog.schema.fiscal_quarter"},
+]
 
 # Space metadata
 warehouse_id = "your_serverless_warehouse_id"
@@ -112,7 +139,7 @@ config = {
     },
     "data_sources": {
         "tables": tables,
-        # "metric_views": metric_views,  # Uncomment if using metric views
+        "metric_views": metric_views,  # Remove if not using metric views
     },
     "instructions": {
         "text_instructions": [
@@ -127,6 +154,8 @@ config = {
                     "id": example_sql_ids[i],
                     "question": example_sqls[i]["question"],
                     "sql": example_sqls[i]["sql"],
+                    **({"usage_guidance": example_sqls[i]["usage_guidance"]} if "usage_guidance" in example_sqls[i] else {}),
+                    **({"parameters": example_sqls[i]["parameters"]} if "parameters" in example_sqls[i] else {}),
                 }
                 for i in range(len(example_sqls))
             ],
@@ -137,14 +166,14 @@ config = {
             "filters": sorted(sql_snippet_filters, key=lambda x: x["id"]),
             "expressions": sorted(sql_snippet_expressions, key=lambda x: x["id"]),
         },
-        # "join_specs": sorted(
-        #     [{"id": secrets.token_hex(16), **js} for js in join_specs],
-        #     key=lambda x: x["id"],
-        # ),
-        # "sql_functions": sorted(
-        #     [{"id": secrets.token_hex(16), **sf} for sf in sql_functions],
-        #     key=lambda x: x["id"],
-        # ),
+        "join_specs": sorted(
+            [{"id": secrets.token_hex(16), **js} for js in join_specs],
+            key=lambda x: x["id"],
+        ),
+        "sql_functions": sorted(
+            [{"id": secrets.token_hex(16), **sf} for sf in sql_functions],
+            key=lambda x: x["id"],
+        ),
     },
 }
 

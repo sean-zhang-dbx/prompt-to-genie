@@ -216,7 +216,7 @@ def validate_config(config: dict) -> list[dict]:
                 ]
                 for pattern, msg in stale_patterns:
                     if pattern in full_text:
-                        warn(f"{p}.content", msg)
+                        warning(f"{p}.content", msg)
 
     # example_question_sqls
     example_sqls = instructions.get("example_question_sqls", [])
@@ -243,6 +243,18 @@ def validate_config(config: dict) -> list[dict]:
                 check_string_array(f"{p}.sql", sql)
                 if isinstance(sql, list) and len(sql) == 0:
                     error(f"{p}.sql", "SQL array must not be empty")
+            # Check for usage_guidance (recommended on complex examples)
+            ug = eq.get("usage_guidance")
+            if ug is not None and not isinstance(ug, list):
+                error(f"{p}.usage_guidance", "Must be an array of strings")
+
+        # Warn if no example SQLs have usage_guidance
+        sqls_with_guidance = sum(1 for eq in example_sqls if eq.get("usage_guidance"))
+        if len(example_sqls) > 0 and sqls_with_guidance == 0:
+            warning(
+                "instructions.example_question_sqls",
+                "No example SQL queries have 'usage_guidance'. Adding usage_guidance helps Genie know when to apply each pattern."
+            )
 
     # sql_functions
     sql_functions = instructions.get("sql_functions", [])
@@ -280,6 +292,20 @@ def validate_config(config: dict) -> list[dict]:
             sql = js.get("sql")
             if sql is None or (isinstance(sql, list) and len(sql) == 0):
                 error(f"{p}.sql", "Missing or empty 'sql' field")
+            elif isinstance(sql, list):
+                # Warn about compound conditions (AND/OR not supported in single elements)
+                for j, s in enumerate(sql):
+                    if isinstance(s, str) and re.search(r'\b(AND|OR)\b', s, re.IGNORECASE):
+                        warning(
+                            f"{p}.sql[{j}]",
+                            "Join spec SQL contains AND/OR — each element must be a single equality. "
+                            "For multi-column joins, use separate join specs with comment/instruction fields indicating they go together."
+                        )
+            # Warn if missing comment/instruction (recommended)
+            if not js.get("comment"):
+                warning(f"{p}.comment", "Missing 'comment' — adding business context helps Genie choose the right join")
+            if not js.get("instruction"):
+                warning(f"{p}.instruction", "Missing 'instruction' — adding usage guidance helps Genie know when to apply this join")
 
     # sql_snippets
     snippets = instructions.get("sql_snippets", {})
@@ -307,6 +333,11 @@ def validate_config(config: dict) -> list[dict]:
                 elif snippet_type in ("expressions", "measures"):
                     if not sn.get("alias"):
                         warning(f"{p}.alias", "Missing 'alias' field — expressions and measures should have an alias")
+                # Check for recommended optional fields
+                if not sn.get("synonyms"):
+                    warning(f"{p}.synonyms", "Missing 'synonyms' — adding alternate terms helps Genie match user questions to this snippet")
+                if not sn.get("instruction"):
+                    warning(f"{p}.instruction", "Missing 'instruction' — adding usage guidance helps Genie know when to apply this snippet")
 
     # --- benchmarks ---
     benchmarks = config.get("benchmarks", {})
@@ -551,13 +582,19 @@ else:
     sample_qs = config.get("config", {}).get("sample_questions", [])
     bench_qs = config.get("benchmarks", {}).get("questions", [])
 
+    # Count column configs and usage guidance
+    total_col_configs = sum(len(t.get("column_configs", [])) for t in tables)
+    sqls_with_guidance = sum(1 for eq in example_sqls if eq.get("usage_guidance"))
+
     print(f"\n  Version: {config.get('version', 'MISSING')}")
     print(f"  Tables: {len(tables)}")
+    if total_col_configs:
+        print(f"  Column configs: {total_col_configs} (across all tables)")
     if metric_views:
         print(f"  Metric views: {len(metric_views)}")
     print(f"  Sample questions: {len(sample_qs)}")
     print(f"  Text instructions: {len(text_instr)}")
-    print(f"  Example SQL queries: {len(example_sqls)}")
+    print(f"  Example SQL queries: {len(example_sqls)}" + (f" ({sqls_with_guidance} with usage_guidance)" if example_sqls else ""))
     print(f"  SQL functions: {len(sql_functions)}")
     print(f"  Join specs: {len(join_specs)}")
     total_snippets = len(snippet_measures) + len(snippet_filters) + len(snippet_expressions)

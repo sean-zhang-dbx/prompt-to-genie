@@ -41,7 +41,7 @@ if serverless_warehouses:
         print(f"  {'─' * 50}")
 else:
     print("No serverless SQL warehouses found.")
-    print("Note: Genie spaces require a serverless SQL warehouse.")
+    print("Note: Genie spaces require a pro or serverless SQL warehouse.")
     print("You may need to create one in the SQL Warehouses UI.")
 
 
