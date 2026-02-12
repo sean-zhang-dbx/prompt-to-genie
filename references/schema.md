@@ -154,8 +154,8 @@ Complete structure for the `serialized_space` configuration. Include only sectio
 | `data_sources.tables[].column_configs[].description` | string[] | Contextual description beyond the column name |
 | `data_sources.tables[].column_configs[].synonyms` | string[] | Alternative names users might use for this column |
 | `data_sources.tables[].column_configs[].exclude` | boolean | Hide this column from Genie (default: false) |
-| `data_sources.tables[].column_configs[].enable_format_assistance` | boolean | **(v2 only)** Provide representative values so Genie understands data types and formatting. **Enabled by default** when tables are added. Must be `true` for entity matching to work. |
-| `data_sources.tables[].column_configs[].enable_entity_matching` | boolean | **(v2 only)** Match user terms to actual column values (e.g., "California" → "CA"). **Enabled by default** when tables are added. Requires `enable_format_assistance: true`. Supports up to 120 columns, 1,024 distinct values per column (max 127 chars each). |
+| `data_sources.tables[].column_configs[].enable_format_assistance` | boolean | **(v2 only)** Provide representative values so Genie understands data types and formatting. Auto-enabled via UI but **OFF by default via API** — must be set explicitly. Must be `true` for entity matching to work. |
+| `data_sources.tables[].column_configs[].enable_entity_matching` | boolean | **(v2 only)** Match user terms to actual column values (e.g., "California" → "CA"). Auto-enabled via UI but **OFF by default via API** — must be set explicitly. Requires `enable_format_assistance: true`. Supports up to 120 columns, 1,024 distinct values per column (max 127 chars each). |
 | `data_sources.metric_views[].identifier` | string | Fully qualified metric view name |
 | `data_sources.metric_views[].description` | string[] | What the metric view computes |
 
@@ -166,10 +166,12 @@ Complete structure for the `serialized_space` configuration. Include only sectio
 > Including v1 fields in a v2 space will cause API errors. Always use the v2 field names.
 
 > **Prompt matching overview:** "Prompt matching" is the umbrella term for two features that work together:
-> - **Format assistance** — provides representative values so Genie understands data types and formatting patterns. Automatically enabled for eligible columns when tables are added to a space.
+> - **Format assistance** — provides representative values so Genie understands data types and formatting patterns.
 > - **Entity matching** — provides curated lists of distinct values so Genie can map user terms to actual data (e.g., "California" → "CA"). Requires `enable_format_assistance: true` (turning off format assistance automatically disables entity matching).
 >
-> Both are **enabled by default** when tables are added via the UI. When creating spaces via API with `column_configs`, set both explicitly to `true` for filter/category columns to ensure they are active.
+> **UI vs API behavior:** When tables are added via the Genie space UI, both features are auto-enabled for eligible columns. **When creating spaces via the API, prompt matching is OFF by default.** You must explicitly include `column_configs` entries with `enable_format_assistance: true` and `enable_entity_matching: true` for each column that needs it. Columns not listed in `column_configs` will not have prompt matching.
+>
+> **Post-creation recommendation:** After creating a space via API, open it in the UI and verify that prompt matching is enabled for all key filter columns (Configure > Data > column > Advanced settings). You can also enable it for additional columns at that point.
 >
 > **Entity matching limits:** Up to 120 columns per space, 1,024 distinct values per column, max 127 characters per value. Tables with row filters or column masks are excluded from prompt matching.
 >

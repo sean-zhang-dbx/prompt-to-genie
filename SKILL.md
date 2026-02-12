@@ -109,7 +109,7 @@ If column descriptions are missing or unclear, suggest the user add them in Unit
 
 **Reference script:** See `scripts/discover_resources.py` (Part 2) for a comprehensive audit that checks table comments, column descriptions, column counts, foreign keys, and generates a Genie-readiness quality score with specific recommendations.
 
-**Column-level configuration via API:** Set per-column metadata directly in the `serialized_space` using `column_configs` on each table. Both **format assistance** and **entity matching** (collectively called "prompt matching") are enabled by default when tables are added via the UI. When creating spaces via API, set `enable_format_assistance: true` and `enable_entity_matching: true` explicitly on string/category columns used for filtering. Note: entity matching requires format assistance — turning off format assistance automatically disables entity matching. Hide irrelevant columns with `exclude: true`. See `references/schema.md` → "Prompt matching overview" for limits and "Field Reference → data_sources" for all fields.
+**Column-level configuration via API:** Set per-column metadata directly in the `serialized_space` using `column_configs` on each table. **Important: prompt matching (format assistance + entity matching) is only auto-enabled when tables are added via the UI. When creating spaces via the API, prompt matching is OFF by default.** You must explicitly include `column_configs` entries with `enable_format_assistance: true` and `enable_entity_matching: true` for every string/category column that users will filter on. Columns not listed in `column_configs` will not have prompt matching enabled. Entity matching requires format assistance — turning off format assistance automatically disables entity matching. Hide irrelevant columns with `exclude: true`. See `references/schema.md` → "Prompt matching overview" for limits and "Field Reference → data_sources" for all fields.
 
 ### Define Table Relationships
 
@@ -127,7 +127,7 @@ After creating the space via the API, recommend that users build out the **knowl
 - **Column metadata and synonyms** — custom descriptions and alternate names to reduce ambiguity
 - **SQL expressions** — reusable definitions for metrics, filters, and dimensions
 - **Join relationships** — explicit definitions of how tables relate
-- **Prompt matching** (format assistance + entity matching) — helps Genie match user values to correct columns (e.g., "California" → "CA"). Both are automatically enabled for eligible columns when tables are added. Manage per-column settings under **Configure > Data > [column] > Advanced settings** in the UI.
+- **Prompt matching** (format assistance + entity matching) — helps Genie match user values to correct columns (e.g., "California" → "CA"). Auto-enabled when tables are added via the UI, but **NOT auto-enabled when creating via API**. After API creation, verify prompt matching is active in Configure > Data > [column] > Advanced settings.
 
 These enhancements don't require write access to the underlying Unity Catalog tables — they're scoped to the Genie space only.
 
@@ -572,6 +572,10 @@ https://<workspace-url>/genie/rooms/<space_id>
 Get the workspace URL from `w.config.host` (strip trailing slash) and the space ID from the API response. Example:
 `https://adb-984752964297111.11.azuredatabricks.net/genie/rooms/01f0d5be61091b6ea75a6e8438c3bce2`
 
+> **Important post-creation step:** Prompt matching (format assistance + entity matching) is **not auto-enabled when creating via the API**. After the space is created, remind the user:
+>
+> *"Your space is live! One important step: prompt matching (which helps Genie match user terms like 'California' to actual values like 'CA') is only auto-enabled when tables are added via the UI. Since we created this space via the API, please open the space, go to Configure > Data, and verify that Format assistance and Entity matching are enabled for your key filter columns (under each column's Advanced settings). The `column_configs` I included cover [list columns], but any other string/category columns may need to be enabled manually."*
+
 
 **Authentication Notes:**
 - All scripts use `WorkspaceClient()` from the Databricks SDK (`databricks-sdk`), which auto-authenticates in notebook context
@@ -734,6 +738,7 @@ Before creating the space, verify:
 - [ ] **All example SQL queries have been executed** and return valid results (no errors, non-empty)
 - [ ] **Text instructions** are concise, specific, and non-conflicting
 - [ ] Instructions across all types are consistent (e.g., same rounding, same date conventions)
+- [ ] **`column_configs`** include `enable_format_assistance: true` and `enable_entity_matching: true` for all string/category filter columns (prompt matching is NOT auto-enabled via API)
 - [ ] Title and description are provided
 
 ## Error Handling
@@ -876,7 +881,7 @@ Work through this checklist automatically after retrieving the configuration. Fl
 ### Configuration Audit
 - [ ] **Sample questions**: Are there at least 3? Do they cover the space's stated purpose?
 - [ ] **Description quality**: Is the space description clear and informative?
-- [ ] **Prompt matching**: Remind users to verify that **format assistance** and **entity matching** are enabled for key filter columns (Configure > Data > column > Advanced settings). Both are on by default but may have been turned off.
+- [ ] **Prompt matching**: Verify that **format assistance** and **entity matching** are enabled for key filter columns (Configure > Data > column > Advanced settings). These are auto-enabled via UI but **off by default for API-created spaces** — check especially if the space was created programmatically.
 - [ ] **Cross-section consistency**: Do `text_instructions`, `example_question_sqls`, and `sql_snippets` all align? No stale or contradictory guidance?
 
 **Present findings** to the user as a prioritized list, starting with the highest-impact improvements.

@@ -6,7 +6,7 @@ Step-by-step instructions for common changes in the Genie space UI. Use these wh
 
 ## Enable Prompt Matching for a Column
 
-"Prompt matching" includes two features: **Format assistance** (provides representative values) and **Entity matching** (maps user terms to actual data values like "California" → "CA"). Both are enabled by default when tables are added but can be toggled per-column.
+"Prompt matching" includes two features: **Format assistance** (provides representative values) and **Entity matching** (maps user terms to actual data values like "California" → "CA"). Both are auto-enabled when tables are added via the UI, but **not when creating via the API** — after API creation, verify these are on for key filter columns.
 
 > **Important:** Entity matching requires format assistance. Turning off format assistance automatically disables entity matching.
 

@@ -20,10 +20,12 @@ w = WorkspaceClient()
 # Tables to include (sorted alphabetically by identifier)
 # "description" overrides the Unity Catalog description for this space only
 # "column_configs" sets per-column metadata (prompt matching):
-#   - enable_format_assistance: provides representative values (auto-enabled via UI)
+#   - enable_format_assistance: provides representative values
 #   - enable_entity_matching: maps user terms to actual values (requires format_assistance)
 #   - exclude: hides columns from Genie (reduces ambiguity)
-# When creating via API, set both flags explicitly on filter/category columns.
+# IMPORTANT: Prompt matching is NOT auto-enabled when creating via API.
+# You must explicitly set enable_format_assistance and enable_entity_matching
+# to True for every string/category column users will filter on.
 tables = sorted([
     {
         "identifier": "catalog.schema.orders",
