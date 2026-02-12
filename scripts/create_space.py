@@ -102,12 +102,16 @@ example_sqls = [
 
 # SQL expressions — measures, filters, dimensions
 # IMPORTANT: sql is a string[] (array), same format as example_question_sqls.
+# IMPORTANT: Column references MUST be table-qualified (table_name.column_name).
+#   The API accepts bare column names, but the Genie UI rejects them with
+#   "Table name or alias is required for column '...'".
+# IMPORTANT: Filters must NOT include the WHERE keyword — only the boolean condition.
 # Optional fields on all types: synonyms, instruction, comment, display_name
 sql_snippet_measures = [
     {
         "alias": "total_revenue",
         "display_name": "Total Revenue",
-        "sql": ["SUM(quantity * unit_price)"],
+        "sql": ["SUM(orders.quantity * orders.unit_price)"],
         "synonyms": ["revenue", "sales", "total sales"],
         "instruction": ["Use for any revenue aggregation"],
         "comment": ["Revenue includes all non-cancelled order line items"],
@@ -116,7 +120,7 @@ sql_snippet_measures = [
 sql_snippet_filters = [
     {
         "display_name": "high value",
-        "sql": ["WHERE amount > 1000"],
+        "sql": ["orders.amount > 1000"],
         "synonyms": ["big deal", "large order"],
         "instruction": ["Apply when users ask about high-value or large orders"],
         "comment": ["Threshold aligned with finance team's definition"],
@@ -126,7 +130,7 @@ sql_snippet_expressions = [
     {
         "alias": "order_year",
         "display_name": "Order Year",
-        "sql": ["YEAR(order_date)"],
+        "sql": ["YEAR(orders.order_date)"],
         "synonyms": ["year"],
         "instruction": ["Use for year-based grouping"],
         "comment": ["Standard date dimension for annual reporting"],

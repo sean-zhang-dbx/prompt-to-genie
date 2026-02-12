@@ -380,6 +380,46 @@ def validate_config(config: dict) -> list[dict]:
                     error(f"{p}.sql", "SQL array must not be empty")
                 else:
                     check_string_array(f"{p}.sql", sql)
+                # Check filter-specific issues
+                if snippet_type == "filters" and isinstance(sql, list) and len(sql) > 0:
+                    first_elem = sql[0] if isinstance(sql[0], str) else ""
+                    # Check for WHERE keyword in filter SQL
+                    if re.match(r'^\s*WHERE\s+', first_elem, re.IGNORECASE):
+                        error(f"{p}.sql", "Filter SQL must NOT include the WHERE keyword — provide only the boolean condition. "
+                              "Genie adds the WHERE clause itself. The UI rejects filters containing WHERE. "
+                              "Example: [\"orders.amount > 1000\"] not [\"WHERE orders.amount > 1000\"]")
+                # Check for bare (non-table-qualified) column references in all snippet types.
+                # Heuristic: if the SQL contains no dot-separated identifiers (table.column),
+                # it likely has bare column references that the Genie UI will reject.
+                if isinstance(sql, list) and len(sql) > 0:
+                    full_sql = " ".join(s for s in sql if isinstance(s, str))
+                    # Strip string literals to avoid false positives
+                    stripped = re.sub(r"'[^']*'", "''", full_sql)
+                    # Strip leading WHERE for analysis
+                    stripped = re.sub(r'^\s*WHERE\s+', '', stripped, flags=re.IGNORECASE)
+                    # Check if there are any table-qualified references (word.word or `word`.`word`)
+                    has_qualified = bool(re.search(r'[a-zA-Z_]\w*\.[a-zA-Z_]\w*|`[^`]+`\.`[^`]+`', stripped))
+                    if not has_qualified and stripped.strip():
+                        # Find likely column names (identifiers that aren't SQL keywords/functions)
+                        all_idents = re.findall(r'[a-zA-Z_]\w*', stripped)
+                        sql_keywords = {'AND', 'OR', 'NOT', 'IN', 'IS', 'NULL', 'LIKE', 'ILIKE',
+                                      'BETWEEN', 'TRUE', 'FALSE', 'CASE', 'WHEN', 'THEN', 'ELSE',
+                                      'END', 'AS', 'SUM', 'AVG', 'COUNT', 'MIN', 'MAX', 'YEAR',
+                                      'MONTH', 'DAY', 'DATE', 'TIMESTAMP', 'CAST', 'COALESCE',
+                                      'NULLIF', 'IF', 'IIF', 'ROUND', 'ABS', 'UPPER', 'LOWER',
+                                      'TRIM', 'LENGTH', 'CONCAT', 'SUBSTR', 'SUBSTRING', 'REPLACE',
+                                      'DATEDIFF', 'DATEADD', 'DATE_ADD', 'DATE_SUB', 'CURRENT_DATE',
+                                      'CURRENT_TIMESTAMP', 'WHERE', 'FROM', 'SELECT', 'GROUP', 'BY',
+                                      'ORDER', 'HAVING', 'LIMIT', 'DISTINCT', 'EXISTS', 'ANY', 'ALL'}
+                        col_candidates = [c for c in all_idents if c.upper() not in sql_keywords]
+                        if col_candidates:
+                            warning(
+                                f"{p}.sql",
+                                f"No table-qualified column references found (e.g., 'table_name.column'). "
+                                f"The Genie UI requires table-qualified references — bare column names like "
+                                f"'{col_candidates[0]}' will be rejected with 'Table name or alias is required'. "
+                                f"Use table_name.column_name format."
+                            )
                 # Check for required name/alias fields
                 if snippet_type == "filters":
                     if not sn.get("display_name"):
@@ -392,6 +432,45 @@ def validate_config(config: dict) -> list[dict]:
                     warning(f"{p}.synonyms", "Missing 'synonyms' — adding alternate terms helps Genie match user questions to this snippet")
                 if not sn.get("instruction"):
                     warning(f"{p}.instruction", "Missing 'instruction' — adding usage guidance helps Genie know when to apply this snippet")
+
+    # --- Cross-reference: snippet table prefixes vs data_sources ---
+    # Verify that table names used in sql_snippets match tables in data_sources.
+    # Extract short table names from data_sources for matching.
+    known_table_names = set()
+    for tbl in tables:
+        ident = tbl.get("identifier", "")
+        parts = ident.split(".")
+        if len(parts) == 3:
+            known_table_names.add(parts[2])  # short name (e.g., "orders")
+        known_table_names.add(ident)  # full name (e.g., "catalog.schema.orders")
+    for mv in metric_views:
+        ident = mv.get("identifier", "")
+        parts = ident.split(".")
+        if len(parts) == 3:
+            known_table_names.add(parts[2])
+        known_table_names.add(ident)
+
+    if known_table_names:
+        for snippet_type in ("filters", "expressions", "measures"):
+            snippet_list = snippets.get(snippet_type, [])
+            for i, sn in enumerate(snippet_list):
+                p = f"instructions.sql_snippets.{snippet_type}[{i}]"
+                sql = sn.get("sql")
+                if isinstance(sql, list):
+                    full_sql = " ".join(s for s in sql if isinstance(s, str))
+                    # Strip string literals
+                    stripped = re.sub(r"'[^']*'", "''", full_sql)
+                    # Find table.column references (word.word or `word`.`word`)
+                    refs = re.findall(r'([a-zA-Z_]\w*)\.([a-zA-Z_]\w*)', stripped)
+                    refs += [(m[0], m[1]) for m in re.findall(r'`([^`]+)`\.`([^`]+)`', stripped)]
+                    for tbl_name, col_name in refs:
+                        if tbl_name.lower() not in {t.lower() for t in known_table_names}:
+                            error(
+                                f"{p}.sql",
+                                f"Table reference '{tbl_name}' not found in data_sources. "
+                                f"Known tables: {sorted(t for t in known_table_names if '.' not in t) or sorted(known_table_names)}. "
+                                f"Check for typos in the table name prefix."
+                            )
 
     # --- benchmarks ---
     benchmarks = config.get("benchmarks", {})

@@ -1,6 +1,6 @@
 ---
 name: prompt-to-genie
-description: Guide users through creating and managing Databricks AI/BI Genie spaces using natural language. Helps gather requirements, configure data sources, define sample questions, generate the space configuration, and manage existing spaces by auditing, diagnosing issues, and optimizing configuration. Use when the user wants to create, build, set up, update, audit, troubleshoot, or optimize a Genie space.
+description: Guide users through creating and managing Databricks AI/BI Genie spaces (Genie rooms) using the Genie API and serialized_space JSON configuration. Covers the full lifecycle: gathering requirements, profiling Unity Catalog tables, configuring data sources with column_configs, defining sample questions, writing SQL expressions (sql_snippets: measures, filters, dimensions), example SQL queries, text instructions, join specs (join_specs), SQL functions, and benchmarks. Manages existing spaces by auditing, diagnosing issues, and optimizing configuration via the PATCH API. Use when the user mentions Genie space, Genie room, serialized_space, knowledge store, sql_snippets, join_specs, column_configs, example_question_sqls, text_instructions, sql_functions, Genie API, prompt matching, entity matching, format assistance, or wants to create, build, set up, configure, update, audit, troubleshoot, or optimize a Genie space.
 ---
 
 # Create and Manage Genie Spaces
@@ -202,18 +202,18 @@ Use SQL expressions to define frequently used business terms as reusable definit
 
 - **Measures** (`sql_snippets.measures`): KPIs and aggregation metrics
   ```json
-  {"id": "...", "alias": "total_revenue", "sql": ["SUM(quantity * unit_price)"]}
+  {"id": "...", "alias": "total_revenue", "sql": ["SUM(orders.quantity * orders.unit_price)"]}
   ```
-- **Filters** (`sql_snippets.filters`): Common filtering conditions (boolean)
+- **Filters** (`sql_snippets.filters`): Common filtering conditions (boolean expression — do **not** include the `WHERE` keyword)
   ```json
-  {"id": "...", "display_name": "high value", "sql": ["WHERE amount > 1000"]}
+  {"id": "...", "display_name": "high value", "sql": ["orders.amount > 1000"]}
   ```
 - **Dimensions** (`sql_snippets.expressions`): Attributes for grouping and analysis
   ```json
-  {"id": "...", "alias": "order_year", "sql": ["YEAR(order_date)"]}
+  {"id": "...", "alias": "order_year", "sql": ["YEAR(orders.order_date)"]}
   ```
 
-> **Important:** The `sql` field in `sql_snippets` is a **string array** (`string[]`), the same format as `example_question_sqls[].sql`. Wrap the SQL fragment in an array (e.g., `["SUM(amount)"]`). The API rejects plain strings.
+> **Important:** The `sql` field in `sql_snippets` is a **string array** (`string[]`), the same format as `example_question_sqls[].sql`. Wrap the SQL fragment in an array (e.g., `["SUM(orders.amount)"]`). The API rejects plain strings. **All column references must be table-qualified** (`table_name.column_name`) — the Genie UI rejects bare column names.
 
 **Good candidates for SQL expressions:**
 - Metrics: gross margin, conversion rate, revenue
@@ -457,13 +457,13 @@ Build the `serialized_space` JSON with all gathered information. Below is the co
     ],
     "sql_snippets": {
       "filters": [
-        {"id": "f6a7b8c9d0e10000000000000000000f", "sql": ["WHERE amount > 1000"], "display_name": "high value"}
+        {"id": "f6a7b8c9d0e10000000000000000000f", "sql": ["orders.amount > 1000"], "display_name": "high value"}
       ],
       "expressions": [
-        {"id": "a7b8c9d0e1f20000000000000000000a", "alias": "order_year", "sql": ["YEAR(order_date)"]}
+        {"id": "a7b8c9d0e1f20000000000000000000a", "alias": "order_year", "sql": ["YEAR(orders.order_date)"]}
       ],
       "measures": [
-        {"id": "b8c9d0e1f2a30000000000000000000b", "alias": "total_revenue", "sql": ["SUM(quantity * unit_price)"]}
+        {"id": "b8c9d0e1f2a30000000000000000000b", "alias": "total_revenue", "sql": ["SUM(orders.quantity * orders.unit_price)"]}
       ]
     }
   },
@@ -501,7 +501,9 @@ Build the `serialized_space` JSON with all gathered information. Below is the co
 - `sql` (in `example_question_sqls`): Must be an **array of strings**. Each SQL clause should be a separate element with `\n` at the end:
   - Correct: `["SELECT\n", "  col1,\n", "  col2\n", "FROM table\n", "WHERE col1 > 0"]`
   - Wrong: `["SELECT col1, col2FROM tableWHERE col1 > 0"]`
-- `sql` (in `sql_snippets`): Must be a **string array** (`string[]`), same format as `example_question_sqls`: `["SUM(quantity * unit_price)"]`
+- `sql` (in `sql_snippets`): Must be a **string array** (`string[]`), same format as `example_question_sqls`: `["SUM(orders.quantity * orders.unit_price)"]`
+- **SQL snippets require table-qualified column references** (`table_name.column`) in all snippet types. The API accepts bare column names, but the UI rejects them.
+- **Filters must NOT include the `WHERE` keyword** — only the boolean condition (e.g., `["orders.amount > 1000"]` not `["WHERE orders.amount > 1000"]`).
 - **ID Format**: All IDs must be exactly 32 lowercase hexadecimal characters (no hyphens)
 - **Sorting**: All arrays of objects with `id` fields must be sorted alphabetically by `id`. Tables must be sorted by `identifier`.
 - **Include only what's needed**: Omit sections that don't apply (e.g., skip `metric_views` if none, skip `benchmarks` if not creating them yet)
@@ -549,9 +551,11 @@ POST https://<workspace-url>/api/2.0/genie/spaces
 ### Validate Before Creating
 
 **Reference script:** Run `scripts/validate_config.py` on the generated config **before** calling the API. It checks:
-- **Errors**: ID format, sorting, uniqueness, required fields, limits, concatenated questions, malformed SQL
-- **Warnings**: Table count, instruction budget, formatting issues
+- **Errors**: ID format, sorting, uniqueness, required fields, limits, concatenated questions, malformed SQL, `WHERE` keyword in filters, snippet table references not in `data_sources`
+- **Warnings**: Table count, instruction budget, formatting issues, bare (non-table-qualified) column names in snippets
 - **Parameterization suggestions**: Detects similar queries that could be consolidated into parameterized queries, and flags hardcoded filter values that should use `:parameter` syntax
+
+The validator cross-references table names in `sql_snippets` against `data_sources.tables` — if a snippet references a table that isn't in the space (e.g., typo `orderz.amount` instead of `orders.amount`), it flags an error. This catches the most common snippet mistakes without needing to execute queries.
 
 ### Test Example SQL Queries
 
@@ -748,7 +752,7 @@ Before creating the space, verify:
 - [ ] Warehouse ID is valid and is a pro or serverless SQL warehouse
 - [ ] Parent path exists in workspace
 - [ ] Sample questions are business-friendly and cover common use cases
-- [ ] **SQL expressions** (`sql_snippets`) are defined for key metrics, filters, and dimensions
+- [ ] **SQL expressions** (`sql_snippets`) are defined for key metrics, filters, and dimensions, with table-qualified column references that match `data_sources` tables
 - [ ] **Example SQL queries** are included for complex or multi-step questions
 - [ ] **All example SQL queries have been executed** and return valid results (no errors, non-empty)
 - [ ] **Text instructions** are concise, specific, and non-conflicting
@@ -990,7 +994,7 @@ When making changes to any part of the configuration, **review all related secti
 
 ### Validate Before Updating
 
-**Reference script:** Run `scripts/validate_config.py` on the modified config **before** calling the PATCH API. This catches sorting errors, duplicate IDs, invalid formats, concatenated questions, malformed SQL, and suggests parameterization opportunities.
+**Reference script:** Run `scripts/validate_config.py` on the modified config **before** calling the PATCH API. This catches sorting errors, duplicate IDs, invalid formats, concatenated questions, malformed SQL, snippet table reference mismatches, and suggests parameterization opportunities.
 
 ### Test New or Modified SQL Queries
 

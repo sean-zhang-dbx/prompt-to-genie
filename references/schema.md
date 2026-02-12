@@ -84,6 +84,7 @@ Complete structure for the `serialized_space` configuration. Include only sectio
           "`orders`.`customer_id` = `customers`.`customer_id`",
           "--rt=FROM_RELATIONSHIP_TYPE_MANY_TO_ONE--"
         ],
+        "comment": ["Join orders to customers on customer_id"],
         "instruction": ["Use this join when relating orders to customer demographics"]
       }
     ],
@@ -92,7 +93,7 @@ Complete structure for the `serialized_space` configuration. Include only sectio
         {
           "id": "f6a7b8c9d0e10000000000000000000f",
           "display_name": "high value",
-          "sql": ["WHERE amount > 1000"],
+          "sql": ["orders.amount > 1000"],
           "synonyms": ["big deal", "large order"],
           "instruction": ["Apply when users ask about high-value or large orders"],
           "comment": ["Threshold aligned with finance team's definition"]
@@ -103,7 +104,7 @@ Complete structure for the `serialized_space` configuration. Include only sectio
           "id": "a7b8c9d0e1f20000000000000000000a",
           "alias": "order_year",
           "display_name": "Order Year",
-          "sql": ["YEAR(order_date)"],
+          "sql": ["YEAR(orders.order_date)"],
           "synonyms": ["year"],
           "instruction": ["Use for any year-based grouping of orders"],
           "comment": ["Standard date dimension for annual reporting"]
@@ -114,7 +115,7 @@ Complete structure for the `serialized_space` configuration. Include only sectio
           "id": "b8c9d0e1f2a30000000000000000000b",
           "alias": "total_revenue",
           "display_name": "Total Revenue",
-          "sql": ["SUM(quantity * unit_price)"],
+          "sql": ["SUM(orders.quantity * orders.unit_price)"],
           "synonyms": ["revenue", "sales", "total sales"],
           "instruction": ["Use for any revenue aggregation"],
           "comment": ["Revenue includes all non-cancelled order line items"]
@@ -160,6 +161,7 @@ Complete structure for the `serialized_space` configuration. Include only sectio
 | `data_sources.tables[].column_configs[].enable_entity_matching` | boolean | **(v2 only)** Match user terms to actual column values (e.g., "California" → "CA"). Auto-enabled via UI but **OFF by default via API** — must be set explicitly. Requires `enable_format_assistance: true`. Supports up to 120 columns, 1,024 distinct values per column (max 127 chars each). |
 | `data_sources.metric_views[].identifier` | string | Fully qualified metric view name |
 | `data_sources.metric_views[].description` | string[] | What the metric view computes |
+| `data_sources.metric_views[].column_configs[]` | array | Per-column configuration (optional — same fields as table column_configs) |
 
 > **v1 vs v2:** Spaces with `"version": 2` reject v1 column_config fields. Use the v2 equivalents instead:
 > - `get_example_values` (v1) → `enable_format_assistance` (v2)
@@ -201,6 +203,7 @@ Complete structure for the `serialized_space` configuration. Include only sectio
 | `instructions.join_specs[].left` | object | Left table: `{"identifier": "catalog.schema.table", "alias": "short_name"}`. `alias` is recommended. |
 | `instructions.join_specs[].right` | object | Right table: `{"identifier": "catalog.schema.table", "alias": "short_name"}`. `alias` is recommended. |
 | `instructions.join_specs[].sql` | string[] | **Two elements required:** (1) Join condition using backtick-quoted alias references (e.g., `` `orders`.`customer_id` = `customers`.`customer_id` ``), (2) Relationship type annotation (e.g., `"--rt=FROM_RELATIONSHIP_TYPE_MANY_TO_ONE--"`). |
+| `instructions.join_specs[].comment` | string[] | Business context for the relationship (optional) |
 | `instructions.join_specs[].instruction` | string[] | Guidance on when to use this join (optional) |
 
 > **Critical `join_specs` format requirement:** The `sql` array must contain **two elements**:
@@ -232,7 +235,9 @@ All three snippet types (`filters`, `expressions`, `measures`) support these opt
 | `sql_snippets.expressions[]` | `id`, `sql` (string[]), `alias` |
 | `sql_snippets.measures[]` | `id`, `sql` (string[]), `alias` |
 
-> **Important:** The `sql` field in `sql_snippets` is a **string array** (`string[]`), the same format as `example_question_sqls[].sql`. Wrap the SQL fragment in a single-element array (e.g., `["SUM(amount)"]`). The API rejects plain strings.
+> **Important:** The `sql` field in `sql_snippets` is a **string array** (`string[]`), the same format as `example_question_sqls[].sql`. Wrap the SQL fragment in a single-element array (e.g., `["SUM(orders.amount)"]`). The API rejects plain strings.
+>
+> **Column references must be table-qualified** (`table_name.column_name`) in all snippet types. The API accepts bare column names, but the Genie UI rejects them with "Table name or alias is required for column '...'". Filters must also omit the `WHERE` keyword — provide only the boolean condition.
 
 ### benchmarks
 
@@ -256,6 +261,12 @@ All three snippet types (`filters`, `expressions`, `measures`) support these opt
 - `sql` (in `sql_snippets`): Must be a **string array** (`string[]`), same format as `example_question_sqls`. Wrap the SQL fragment in an array:
   - Correct: `["SUM(quantity * unit_price)"]`
   - Wrong: `"SUM(quantity * unit_price)"` (plain string — API rejects this)
+- **SQL snippets require table-qualified column references** (`table_name.column`). The API accepts bare column names, but the **UI rejects them** with "Table name or alias is required for column '...'". Always use `table_name.column_name` format in all snippet types (filters, measures, expressions):
+  - Correct: `["orders.amount > 1000"]`
+  - Wrong: `["amount > 1000"]` (UI rejects bare column names)
+- **Filters must NOT include the `WHERE` keyword** — only the boolean condition. Genie adds the `WHERE` clause itself:
+  - Correct: `["orders.amount > 1000"]`
+  - Wrong: `["WHERE orders.amount > 1000"]`
 - **ID Format**: All IDs must be exactly 32 lowercase hexadecimal characters (no hyphens)
 - **Sorting**: All arrays of objects with `id` fields must be sorted alphabetically by `id`. Tables must be sorted by `identifier`.
 - **Include only what's needed**: Omit sections that don't apply (e.g., skip `metric_views` if none, skip `benchmarks` if not creating them yet)
