@@ -44,6 +44,8 @@ A well-defined Genie space should answer questions for a **specific topic and au
 
 Ask the user about:
 
+- [ ] **Title**: What should this space be called? The title is displayed in the UI and helps users identify the space. (e.g., "Sales Analytics", "Customer Support Metrics")
+- [ ] **Description**: A one-sentence summary of the space's purpose (shown in the space listing).
 - [ ] **Purpose**: What specific business questions should this space answer? Be narrow and focused.
 - [ ] **Audience**: Who will use this space? (analysts, executives, etc.) Ideally, a domain expert who understands both the data and the business insights should help define the space.
 - [ ] **Data Domain**: What single area does the data cover? (sales, finance, operations, etc.)
@@ -51,11 +53,11 @@ Ask the user about:
 - [ ] **Scope**: Start small — aim for a minimal setup with essential tables and basic instructions. It's easier to add more later than to debug an overly complex space.
 
 **Example prompt:**
-> "What kind of questions do you want users to be able to ask in this Genie space? For example: sales analytics, customer insights, inventory tracking? Try to keep it focused on one topic — a narrowly scoped space gives more accurate answers."
+> "What kind of questions do you want users to be able to ask in this Genie space? For example: sales analytics, customer insights, inventory tracking? Try to keep it focused on one topic — a narrowly scoped space gives more accurate answers. Also, what would you like to name this space?"
 
 **Key principle:** Curating a Genie space is an iterative process. Plan to start small and refine based on real user feedback rather than aiming for perfection on the first pass.
 
-> **STOP.** Do not proceed to Step 2 until the user has answered the questions above. If their answers are vague (e.g., "just sales stuff"), ask follow-up questions to get specifics — which metrics matter most, what filters users will apply, what time granularity they need. The more context you gather now, the better the space will be.
+> **STOP.** Do not proceed to Step 2 until the user has answered the questions above — including a **title and description** for the space. If their answers are vague (e.g., "just sales stuff"), ask follow-up questions to get specifics — which metrics matter most, what filters users will apply, what time granularity they need. If they haven't provided a title, ask for one now. The more context you gather now, the better the space will be.
 
 ## Step 2: Identify Data Sources
 
@@ -382,14 +384,15 @@ If the user doesn't know their warehouse ID or workspace URL, help them discover
 >
 > *"Here's what I plan to include in your Genie space. Please review and let me know if anything needs to change:*
 >
+> - *Title: [space name]*
+> - *Description: [one-sentence summary]*
+> - *Warehouse: [ID]*
 > - *Tables: [list tables]*
 > - *Sample questions: [list 3-5 questions]*
 > - *SQL expressions: [list measures, filters, dimensions with their definitions]*
 > - *Example SQL queries: [list question + brief description of each]*
 > - *Text instructions: [summarize key rules]*
-> - *Join specs: [list table relationships]*
-> - *Warehouse: [ID]*
-> - *Title / Description: [values]*"
+> - *Join specs: [list table relationships]*"
 >
 > **Only proceed to generate the configuration after the user confirms.** This is your last checkpoint before building — any corrections here are easy, but corrections after creation require the manage workflow.
 
@@ -657,15 +660,16 @@ This example demonstrates the multi-turn, pause-heavy pattern. Notice the agent 
 
 **Agent:** "I can help you create a Genie space for sales analytics! Before I start building anything, I need to understand your requirements. A few questions:
 
-1. **Purpose:** What specific business questions should users be able to ask? (e.g., revenue analysis, product performance, regional comparisons)
-2. **Audience:** Who will use this space? (e.g., sales managers, executives, analysts)
-3. **Key metrics:** What are the most important metrics your team tracks? (e.g., total revenue, win rate, average deal size)
-4. **Common filters:** What do users typically filter by? (e.g., region, product category, time period)
-5. **Data:** Which Unity Catalog tables contain your sales data?"
+1. **Title:** What would you like to name this space? (e.g., 'Sales Analytics', 'Revenue Dashboard')
+2. **Purpose:** What specific business questions should users be able to ask? (e.g., revenue analysis, product performance, regional comparisons)
+3. **Audience:** Who will use this space? (e.g., sales managers, executives, analysts)
+4. **Key metrics:** What are the most important metrics your team tracks? (e.g., total revenue, win rate, average deal size)
+5. **Common filters:** What do users typically filter by? (e.g., region, product category, time period)
+6. **Data:** Which Unity Catalog tables contain your sales data?"
 
 *(Agent waits for user response)*
 
-**User:** "Sales managers will use it. They need to analyze revenue by product and region, and track deal pipeline. Key metrics are total revenue, average order value, and conversion rate. They filter by region and product category. The data is in `analytics.sales.orders` and `analytics.sales.products`."
+**User:** "Call it 'Sales Analytics'. Sales managers will use it. They need to analyze revenue by product and region, and track deal pipeline. Key metrics are total revenue, average order value, and conversion rate. They filter by region and product category. The data is in `analytics.sales.orders` and `analytics.sales.products`."
 
 **Agent:** "Great, let me inspect those tables to understand the data structure..."
 
@@ -686,8 +690,10 @@ This example demonstrates the multi-turn, pause-heavy pattern. Notice the agent 
 
 **User:** "Revenue = quantity * unit_price. Conversion rate is closed-won divided by all closed deals. Fiscal year starts April 1st. Yes, AMER = Americas, EMEA = Europe/Middle East/Africa, APJ = Asia Pacific/Japan, LATAM = Latin America. Hide `etl_timestamp` and `internal_batch_id`."
 
-**Agent:** "Thanks — that's really helpful. Here's what I plan to include in the space. Please review:
+**Agent:** "Thanks — that's really helpful. Here's what I plan to include in your **Sales Analytics** space. Please review:
 
+**Title:** Sales Analytics
+**Description:** Analyze sales revenue, pipeline, and performance by product and region
 **Tables:** `analytics.sales.orders`, `analytics.sales.products`
 **Sample questions:**
 - What were total sales last quarter?
@@ -716,7 +722,7 @@ Does this look right, or would you like to change anything?"
 
 *(Agent waits for user approval)*
 
-**User:** "Looks good! Use warehouse `abc123`, put it in `/Users/sean/genie_spaces`, call it 'Sales Analytics'"
+**User:** "Looks good! Use warehouse `abc123`, put it in `/Users/sean/genie_spaces`"
 
 **Agent:** *(now generates the configuration, validates, tests SQL, and creates the space)*
 
@@ -724,6 +730,8 @@ Does this look right, or would you like to change anything?"
 
 Before creating the space, verify:
 
+- [ ] **Title** is a clear, descriptive name (not empty, not generic like "Untitled" or "New Space")
+- [ ] **Description** is a one-sentence summary of the space's purpose
 - [ ] Space has a **clearly defined purpose** for a specific topic and audience
 - [ ] At least one valid Unity Catalog table is specified
 - [ ] Tables are **focused** — ideally 5 or fewer, maximum 25
@@ -739,7 +747,6 @@ Before creating the space, verify:
 - [ ] **Text instructions** are concise, specific, and non-conflicting
 - [ ] Instructions across all types are consistent (e.g., same rounding, same date conventions)
 - [ ] **`column_configs`** include `enable_format_assistance: true` and `enable_entity_matching: true` for all string/category filter columns (prompt matching is NOT auto-enabled via API)
-- [ ] Title and description are provided
 
 ## Error Handling
 
