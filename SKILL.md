@@ -1,5 +1,5 @@
 ---
-name: create-genie-space
+name: prompt-to-genie
 description: Guide users through creating and managing Databricks AI/BI Genie spaces using natural language. Helps gather requirements, configure data sources, define sample questions, generate the space configuration, and manage existing spaces by auditing, diagnosing issues, and optimizing configuration. Use when the user wants to create, build, set up, update, audit, troubleshoot, or optimize a Genie space.
 ---
 
