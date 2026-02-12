@@ -67,7 +67,7 @@ Your Vaccine Supply Chain Analytics space has a solid foundation with some key a
 - Improve Unity Catalog metadata (highest ROI) - add column descriptions and table comments
 - Add parameters to 2-3 example queries for trusted assets
 - Create 10-20 benchmark questions to measure accuracy systematically
-- Verify prompt matching is enabled in the Genie UI for key columns (country, product, site)
+- Verify format assistance and entity matching are enabled for key filter columns (country, product, site) via Configure > Data > column > Advanced settings
 - Test with real users and iterate based on feedback
 
 The notebook above contains the complete audit with detailed findings. Would you like help implementing any of these recommendations?
@@ -150,7 +150,7 @@ The parameterized queries will show as "Trusted" assets in Genie, giving users c
 ### Recommended Next Steps
 
 - Test the parameterized queries in the new space
-- Enable prompt matching for key columns (country, product, site) in the Genie UI
+- Verify format assistance and entity matching are enabled for key columns (country, product, site) in the Genie UI
 - Create benchmarks to measure accuracy improvements
 - Gather user feedback and iterate
 

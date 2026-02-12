@@ -1,7 +1,7 @@
 """
 Discover and validate resources for Genie space creation.
 
-Part 1: List serverless SQL warehouses and workspace URL.
+Part 1: List pro and serverless SQL warehouses and workspace URL.
 Part 2: Audit Unity Catalog table metadata for Genie-readiness —
         checks table comments, column descriptions, column counts,
         foreign keys, and generates a quality score with recommendations.
@@ -26,22 +26,26 @@ print("=" * 70)
 print(f"\nWorkspace URL: {w.config.host}\n")
 
 warehouses = list(w.warehouses.list())
-serverless_warehouses = [
+# Genie spaces require a pro or serverless SQL warehouse
+eligible_warehouses = [
     wh for wh in warehouses
-    if wh.enable_serverless_compute
+    if wh.enable_serverless_compute or (hasattr(wh, "warehouse_type") and str(wh.warehouse_type) == "PRO")
 ]
 
-if serverless_warehouses:
-    print(f"Found {len(serverless_warehouses)} serverless SQL warehouse(s):\n")
-    for wh in serverless_warehouses:
+if eligible_warehouses:
+    print(f"Found {len(eligible_warehouses)} eligible SQL warehouse(s) (pro or serverless):\n")
+    for wh in eligible_warehouses:
+        wh_type = "Serverless" if wh.enable_serverless_compute else "Pro"
         print(f"  Name: {wh.name}")
         print(f"  ID:   {wh.id}")
+        print(f"  Type: {wh_type}")
         print(f"  State: {wh.state}")
         print(f"  Size: {wh.cluster_size or 'N/A'}")
         print(f"  {'─' * 50}")
+    print("Tip: Serverless warehouses are recommended for optimal Genie performance.")
 else:
-    print("No serverless SQL warehouses found.")
-    print("Note: Genie spaces require a serverless SQL warehouse.")
+    print("No eligible SQL warehouses found (pro or serverless required).")
+    print("Note: Genie spaces require a pro or serverless SQL warehouse.")
     print("You may need to create one in the SQL Warehouses UI.")
 
 
@@ -264,3 +268,69 @@ if accessible:
         print(f"  Strongly recommend adding table comments and column descriptions first.")
 else:
     print(f"  No tables were accessible. Check permissions and table identifiers.")
+
+
+# =====================================================================
+# PART 3: PROFILE KEY COLUMNS
+# =====================================================================
+# Profile string/category columns and date ranges to help write accurate
+# SQL expressions, filters, and example queries.
+#
+# This is OPTIONAL but strongly recommended before generating SQL.
+# Helps avoid common errors like referencing non-existent column values.
+
+# Set to True to enable profiling
+enable_profiling = False
+
+# Max distinct values to show per column (for string/category columns)
+max_distinct_values = 20
+
+# Column types to profile for distinct values
+CATEGORICAL_TYPES = {"string", "varchar", "char", "boolean"}
+DATE_TYPES = {"date", "timestamp", "timestamp_ntz"}
+
+if enable_profiling and accessible:
+    print(f"\n\n{'=' * 70}")
+    print("PART 3: COLUMN VALUE PROFILING")
+    print("Inspecting actual data values to inform SQL generation")
+    print("=" * 70)
+
+    for result in accessible:
+        table_id = result["table"]
+        print(f"\n{'─' * 70}")
+        print(f"TABLE: {table_id}")
+        print(f"{'─' * 70}")
+
+        for col in result["columns"]:
+            col_name = col["name"]
+            col_type = col["type"].lower().split("<")[0].split("(")[0].strip()
+
+            if col_type in CATEGORICAL_TYPES:
+                try:
+                    rows = spark.sql(
+                        f"SELECT DISTINCT `{col_name}` FROM {table_id} "
+                        f"WHERE `{col_name}` IS NOT NULL "
+                        f"ORDER BY `{col_name}` LIMIT {max_distinct_values + 1}"
+                    ).collect()
+                    values = [str(r[0]) for r in rows]
+                    if len(values) > max_distinct_values:
+                        print(f"  {col_name} ({col_type}): {max_distinct_values}+ distinct values — {', '.join(values[:10])}...")
+                    elif values:
+                        print(f"  {col_name} ({col_type}): {', '.join(values)}")
+                    else:
+                        print(f"  {col_name} ({col_type}): (all NULL)")
+                except Exception as e:
+                    print(f"  {col_name} ({col_type}): Error — {e}")
+
+            elif col_type in DATE_TYPES:
+                try:
+                    row = spark.sql(
+                        f"SELECT MIN(`{col_name}`) AS min_val, MAX(`{col_name}`) AS max_val "
+                        f"FROM {table_id}"
+                    ).collect()[0]
+                    print(f"  {col_name} ({col_type}): {row['min_val']} to {row['max_val']}")
+                except Exception as e:
+                    print(f"  {col_name} ({col_type}): Error — {e}")
+
+    print(f"\n  Tip: Use these values to write accurate filters and SQL expressions.")
+    print(f"  Ask the user about domain conventions (fiscal calendar, abbreviations, etc.).")

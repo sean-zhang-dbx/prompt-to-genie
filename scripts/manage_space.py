@@ -28,11 +28,17 @@ current_config = json.loads(space_data.get("serialized_space", "{}"))
 
 # Display summary
 tables = current_config.get("data_sources", {}).get("tables", [])
+metric_views = current_config.get("data_sources", {}).get("metric_views", [])
 questions = current_config.get("config", {}).get("sample_questions", [])
 instructions = current_config.get("instructions", {})
 text_instr = instructions.get("text_instructions", [])
 example_sqls = instructions.get("example_question_sqls", [])
 sql_functions = instructions.get("sql_functions", [])
+join_specs = instructions.get("join_specs", [])
+snippets = instructions.get("sql_snippets", {})
+snippet_measures = snippets.get("measures", [])
+snippet_filters = snippets.get("filters", [])
+snippet_expressions = snippets.get("expressions", [])
 
 print(f"Space: {space_data.get('title', 'Untitled')}")
 print(f"Description: {space_data.get('description', 'None')}")
@@ -40,6 +46,10 @@ print(f"\n{'='*60}")
 print(f"Data Sources: {len(tables)} table(s)")
 for t in tables:
     print(f"  - {t['identifier']}")
+if metric_views:
+    print(f"\nMetric Views: {len(metric_views)}")
+    for mv in metric_views:
+        print(f"  - {mv['identifier']}")
 print(f"\nSample Questions: {len(questions)}")
 for q in questions:
     print(f"  - {q['question'][0]}")
@@ -47,6 +57,16 @@ print(f"\nExample SQL Queries: {len(example_sqls)}")
 for eq in example_sqls:
     print(f"  - {eq['question'][0]}")
 print(f"\nSQL Functions: {len(sql_functions)}")
+if join_specs:
+    print(f"\nJoin Specs: {len(join_specs)}")
+    for js in join_specs:
+        left = js.get("left", {}).get("identifier", "?")
+        right = js.get("right", {}).get("identifier", "?")
+        jtype = js.get("join_type", "JOIN")
+        print(f"  - {left} {jtype} {right}")
+total_snippets = len(snippet_measures) + len(snippet_filters) + len(snippet_expressions)
+if total_snippets:
+    print(f"\nSQL Expressions: {total_snippets} (measures: {len(snippet_measures)}, filters: {len(snippet_filters)}, dimensions: {len(snippet_expressions)})")
 print(f"\nText Instructions: {len(text_instr)} block(s)")
 if text_instr:
     for line in text_instr[0].get("content", []):

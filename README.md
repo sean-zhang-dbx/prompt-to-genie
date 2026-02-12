@@ -1,62 +1,8 @@
 # Prompt to Genie Space
 
-Leveraging [Databricks Assistant agent skills](https://docs.databricks.com/aws/en/assistant/skills) and [custom instructions](https://docs.databricks.com/aws/en/notebooks/assistant-tips#customize-assistant-responses-by-adding-instructions) that enable you to create and manage [AI/BI Genie](https://docs.databricks.com/aws/en/genie/index.html) spaces using natural language — directly from the Databricks Assistant in agent mode.
+A [Databricks Assistant agent skill](https://docs.databricks.com/aws/en/assistant/skills) that lets you create and manage [AI/BI Genie](https://docs.databricks.com/aws/en/genie/index.html) spaces using natural language — directly from the Databricks Assistant in agent mode.
 
 Instead of manually configuring Genie spaces through the UI or writing raw API calls, simply describe what you want in plain English and let the Assistant handle the rest.
-
-## What's Included
-
-```
-prompt-to-genie/
-├── .assistant_instructions.md              # Custom user instructions for the Assistant
-├── create-genie-space/
-│   ├── SKILL.md                            # Skill: Create & manage Genie spaces via conversation
-│   └── scripts/
-│       ├── discover_resources.py           # List warehouses + audit table metadata quality
-│       ├── validate_config.py              # Validate serialized_space JSON before API calls
-│       ├── create_space.py                 # Template: create a new Genie space via API
-│       └── manage_space.py                 # Retrieve, summarize, and update an existing space
-└── examples/
-    ├── create-space/
-    │   ├── conversation_history.md         # Conversation: creating a new Genie space
-    │   └── generated_notebook.ipynb        # Generated notebook from the create session
-    └── review-space/
-        ├── conversation_history.md          # Conversation: reviewing & improving an existing space
-        └── generated_notebook.ipynb         # Generated notebook from the review session
-```
-
-### `create-genie-space` Skill
-
-A conversational skill with two modes:
-
-**Create a New Space:**
-1. **Gathering requirements** — purpose, audience, and data domain
-2. **Identifying data sources** — Unity Catalog tables to include, with metadata quality audit
-3. **Defining sample questions** — business-friendly starter questions for end users
-4. **Configuring instructions** — SQL expressions, example SQL queries, parameterized queries, UDFs, and text instructions
-5. **Discovering resources** — finding serverless SQL warehouses and workspace URLs
-6. **Validating and testing** — validate JSON config, test example SQL queries, check formatting
-7. **Creating the space** — generating the `serialized_space` JSON and calling the Genie API
-8. **Testing and iterating** — self-testing, benchmarking, user testing, and monitoring
-
-**Manage an Existing Space:**
-1. **Retrieving configuration** — fetch and parse the current space setup
-2. **Auditing against best practices** — evaluate tables, instructions, and metadata quality
-3. **Diagnosing issues** — triage specific problems (wrong columns, bad joins, metric errors, etc.)
-4. **Recommending optimizations** — suggest parameterized queries, SQL expressions, column cleanup, and more
-5. **Applying updates** — modify configuration via the API
-6. **Benchmarking** — verify improvements with systematic accuracy testing
-
-### `.assistant_instructions.md`
-
-Custom user instructions that tell the Databricks Assistant to automatically load the `create-genie-space` skill whenever you're working with Genie spaces.
-
-### `examples/`
-
-Real-world examples showing the skill in action:
-
-- **`create-space/`** — End-to-end example of creating a new Genie space from scratch. Includes a conversation transcript showing the requirements gathering, warehouse discovery, table exploration, and space creation flow, plus the generated notebook with all code cells.
-- **`review-space/`** — End-to-end example of reviewing and improving an existing Genie space. Includes a conversation transcript showing the audit, column description updates, parameterized query creation, spacing issue detection and fixes, and space recreation, plus the generated notebook with all code cells.
 
 ## Getting Started
 
@@ -64,48 +10,102 @@ Real-world examples showing the skill in action:
 
 - A Databricks workspace with [AI/BI Genie](https://docs.databricks.com/aws/en/genie/index.html) enabled
 - Access to Databricks Assistant in **agent mode**
-- A **serverless SQL warehouse** (required for Genie spaces)
+- A **pro or serverless SQL warehouse** (serverless recommended for performance)
 - SELECT permissions on the Unity Catalog tables you want to include
 
 ### Installation
 
-1. **Copy the skill to your workspace**
+#### Step 1: Clone as a Git folder (one-time setup)
 
-   Upload the `create-genie-space/` folder to your user skills directory:
+1. In your Databricks workspace, navigate to `/Users/{your-username}/.assistant/skills/`
+   - You can open this folder from the Assistant panel: click **Settings** > **Open skills folder**
+2. Click **Create** > **Git folder**
+3. Paste this repository's URL and name the folder **`create-genie-space`**
 
-   ```
-   /Users/{your-username}/.assistant/skills/create-genie-space/SKILL.md
-   ```
+That's it. The skill is now installed at:
+```
+/Users/{your-username}/.assistant/skills/create-genie-space/SKILL.md
+```
 
-   You can create the skills folder by opening the Assistant panel, clicking **Settings**, then clicking **Open skills folder**.
+#### Step 2: Add custom instructions (optional but recommended)
 
-2. **Add the custom instructions**
+Custom instructions tell the Assistant to automatically load this skill for Genie-related tasks. Open or create your user instructions file at:
 
-   Copy the contents of `.assistant_instructions.md` into your user instructions file:
+```
+/Users/{your-username}/.assistant_instructions.md
+```
 
-   ```
-   /Users/{your-username}/.assistant_instructions.md
-   ```
+You can find this from the Assistant panel under **Settings** > **User instructions** > **Add instructions file**. Then add the following:
 
-   You can create or open this file from the Assistant panel under **Settings** > **User instructions** > **Add instructions file**.
+```markdown
+## Custom Skills
 
-3. **Start using it**
+### Genie Space Management
+When working with Databricks AI/BI Genie spaces — creating, managing, auditing, diagnosing issues, or optimizing:
+- **Always load first**: `/Users/{username}/.assistant/skills/create-genie-space/SKILL.md`
+- This contains the most up-to-date API documentation, error codes, best practices, and troubleshooting guidance
+- Use the **Create a New Space** workflow when the user wants to build a new Genie space
+- Use the **Manage an Existing Space** workflow when the user wants to review, audit, fix, or optimize an existing space
+```
 
-   Open the Databricks Assistant in agent mode and ask something like:
+#### Step 3: Start using it
 
-   > "I want to create a Genie space for our sales team to analyze revenue by product and region."
+Open the Databricks Assistant in agent mode and ask something like:
 
-   The Assistant will automatically load the skill and walk you through the process conversationally.
+> "I want to create a Genie space for our sales team to analyze revenue by product and region."
+
+The Assistant will automatically load the skill and walk you through the process conversationally.
+
+### Updating
+
+To get the latest version, open the Git folder in your workspace and click **Pull**. No files to re-upload.
+
+## What's Included
+
+```
+prompt-to-genie/
+├── SKILL.md                    # Main skill file — workflows for creating & managing Genie spaces
+├── references/
+│   ├── schema.md               # serialized_space JSON schema, field reference, formatting rules
+│   ├── troubleshooting.md      # Error codes, common errors, troubleshooting guide
+│   └── ui_walkthroughs.md      # Step-by-step UI templates for guided changes
+├── scripts/
+│   ├── discover_resources.py   # List warehouses + audit table metadata quality
+│   ├── validate_config.py      # Validate serialized_space JSON before API calls
+│   ├── create_space.py         # Template: create a new Genie space via API
+│   └── manage_space.py         # Retrieve, summarize, and update an existing space
+├── examples/
+│   ├── create-space/           # End-to-end example: creating a new space
+│   └── review-space/           # End-to-end example: reviewing & improving a space
+└── README.md
+```
+
+### Skill Overview
+
+A conversational skill with two workflows:
+
+**Create a New Space** (7 steps): Gather requirements > Identify and profile data sources > Define sample questions > Configure instructions > Generate configuration > Create the space > Test and iterate. See `SKILL.md` for the full workflow.
+
+**Manage an Existing Space** (6 steps): Retrieve configuration > Audit against best practices > Diagnose issues > Recommend optimizations > Apply updates (via API or guided UI walkthrough) > Benchmark and verify. See `SKILL.md` for the full workflow.
+
+The skill is organized as:
+- **`SKILL.md`** — The procedural workflows (create and manage). This is what the Assistant loads and follows step by step.
+- **`references/`** — Reference material the Assistant consults as needed:
+  - `schema.md` — `serialized_space` JSON schema, field reference, formatting rules, ID generation
+  - `troubleshooting.md` — Error codes, common error scenarios, 9 troubleshooting patterns, documentation links
+  - `ui_walkthroughs.md` — Step-by-step templates for making changes in the Genie space UI
+- **`scripts/`** — Python templates the Assistant adapts and runs in notebook cells
+- **`examples/`** — Real conversation transcripts and generated notebooks showing the skill in action
 
 ## Usage Examples
 
-For full end-to-end walkthroughs, see the [`examples/`](examples/) directory — it includes two real sessions: [creating a new space](examples/create-space/) and [reviewing/improving an existing space](examples/review-space/).
+For full end-to-end walkthroughs, see the [`examples/`](examples/) directory.
 
 ### Create a New Genie Space
 
 > **You:** "Create a Genie space for our finance team. The data is in `analytics.finance.transactions` and `analytics.finance.budgets`."
 >
-> **Assistant:** Gathers details about your use case, suggests sample questions, discovers your warehouse, and creates the space via the API.
+> **Assistant:** Gathers details about your use case, asks about business logic, suggests sample questions, discovers your warehouse, presents a plan for review, and creates the space via the API.
 
 ### Audit an Existing Space
 
@@ -127,21 +127,9 @@ For full end-to-end walkthroughs, see the [`examples/`](examples/) directory —
 
 ## How It Works
 
-This project leverages two Databricks Assistant extensibility features:
+This project uses [Databricks Assistant agent skills](https://docs.databricks.com/aws/en/assistant/skills) — packaged domain knowledge and workflows that the Assistant loads automatically when relevant. Each skill lives in its own folder under `/Users/{username}/.assistant/skills/` and contains a `SKILL.md` file with frontmatter metadata and markdown instructions.
 
-### Agent Skills
-
-[Skills](https://docs.databricks.com/aws/en/assistant/skills) package domain-specific knowledge and workflows that the Assistant can load when relevant. Unlike custom instructions (which are applied globally), skills are loaded automatically and only in the relevant context. Each skill lives in its own folder under `/Users/{username}/.assistant/skills/` and contains a `SKILL.md` file with frontmatter metadata and markdown instructions.
-
-Skills can include:
-- Step-by-step procedural guidance
-- Code templates and examples
-- Validation checklists and error handling
-- References to additional scripts or documentation
-
-### Custom Instructions
-
-[Custom instructions](https://docs.databricks.com/aws/en/notebooks/assistant-tips#customize-assistant-responses-by-adding-instructions) let you provide persistent, system-level context to the Assistant. They are applied to every response the Assistant generates (except Quick Fix and Autocomplete). The `.assistant_instructions.md` file in this repo ensures the Assistant knows to reach for the Genie skill when relevant.
+Optionally, [custom instructions](https://docs.databricks.com/aws/en/notebooks/assistant-tips#customize-assistant-responses-by-adding-instructions) (the `.assistant_instructions.md` step above) provide persistent, system-level context to the Assistant so it knows to reach for the skill when you mention Genie spaces.
 
 ## API Reference
 
