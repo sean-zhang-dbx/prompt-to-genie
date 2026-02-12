@@ -118,9 +118,10 @@ If column descriptions are missing or unclear, suggest the user add them in Unit
 If foreign key references are not defined in Unity Catalog, Genie may not know how to join tables correctly. Recommend users:
 
 1. **Define foreign keys in Unity Catalog** when possible (most reliable)
-2. **Define join relationships in the Genie space's knowledge store** — useful for complex join scenarios (self-joins, etc.) or when you can't modify the underlying tables
-3. **Provide example SQL queries with correct joins** as a fallback
-4. **Pre-join tables into views** if none of the above work
+2. **Define join specs in the `serialized_space`** via the API (see format below)
+3. **Define join relationships in the Genie space UI** (Configure > Knowledge store) — useful for complex join scenarios (self-joins, etc.) or when you can't modify the underlying tables
+4. **Provide example SQL queries with correct joins** in `example_question_sqls` — effective fallback that also teaches Genie query patterns
+5. **Pre-join tables into views** if none of the above work
 
 ### Build a Knowledge Store (Post-Creation, in UI)
 
@@ -201,18 +202,18 @@ Use SQL expressions to define frequently used business terms as reusable definit
 
 - **Measures** (`sql_snippets.measures`): KPIs and aggregation metrics
   ```json
-  {"id": "...", "alias": "total_revenue", "sql": "SUM(quantity * unit_price)"}
+  {"id": "...", "alias": "total_revenue", "sql": ["SUM(quantity * unit_price)"]}
   ```
 - **Filters** (`sql_snippets.filters`): Common filtering conditions (boolean)
   ```json
-  {"id": "...", "display_name": "high value", "sql": "WHERE amount > 1000"}
+  {"id": "...", "display_name": "high value", "sql": ["WHERE amount > 1000"]}
   ```
 - **Dimensions** (`sql_snippets.expressions`): Attributes for grouping and analysis
   ```json
-  {"id": "...", "alias": "order_year", "sql": "YEAR(order_date)"}
+  {"id": "...", "alias": "order_year", "sql": ["YEAR(order_date)"]}
   ```
 
-> **Important:** The `sql` field in `sql_snippets` is a **plain string**, not an array. This differs from `example_question_sqls[].sql` which is a `string[]` (array of line strings).
+> **Important:** The `sql` field in `sql_snippets` is a **string array** (`string[]`), the same format as `example_question_sqls[].sql`. Wrap the SQL fragment in an array (e.g., `["SUM(amount)"]`). The API rejects plain strings.
 
 **Good candidates for SQL expressions:**
 - Metrics: gross margin, conversion rate, revenue
@@ -426,7 +427,7 @@ Build the `serialized_space` JSON with all gathered information. Below is the co
     "text_instructions": [
       {
         "id": "b2c3d4e5f6a70000000000000000000b",
-        "content": ["General instructions for the space."]
+        "content": ["General instructions for the space.\n"]
       }
     ],
     "example_question_sqls": [
@@ -446,20 +447,23 @@ Build the `serialized_space` JSON with all gathered information. Below is the co
     "join_specs": [
       {
         "id": "e5f6a7b8c9d00000000000000000000e",
-        "left": {"identifier": "catalog.schema.orders"},
-        "right": {"identifier": "catalog.schema.customers"},
-        "sql": ["orders.customer_id = customers.customer_id"]
+        "left": {"identifier": "catalog.schema.orders", "alias": "orders"},
+        "right": {"identifier": "catalog.schema.customers", "alias": "customers"},
+        "sql": [
+          "`orders`.`customer_id` = `customers`.`customer_id`",
+          "--rt=FROM_RELATIONSHIP_TYPE_MANY_TO_ONE--"
+        ]
       }
     ],
     "sql_snippets": {
       "filters": [
-        {"id": "f6a7b8c9d0e10000000000000000000f", "sql": "WHERE amount > 1000", "display_name": "high value"}
+        {"id": "f6a7b8c9d0e10000000000000000000f", "sql": ["WHERE amount > 1000"], "display_name": "high value"}
       ],
       "expressions": [
-        {"id": "a7b8c9d0e1f20000000000000000000a", "alias": "order_year", "sql": "YEAR(order_date)"}
+        {"id": "a7b8c9d0e1f20000000000000000000a", "alias": "order_year", "sql": ["YEAR(order_date)"]}
       ],
       "measures": [
-        {"id": "b8c9d0e1f2a30000000000000000000b", "alias": "total_revenue", "sql": "SUM(quantity * unit_price)"}
+        {"id": "b8c9d0e1f2a30000000000000000000b", "alias": "total_revenue", "sql": ["SUM(quantity * unit_price)"]}
       ]
     }
   },
@@ -475,7 +479,6 @@ Build the `serialized_space` JSON with all gathered information. Below is the co
 }
 ```
 
-
 **Field Reference:**
 
 | Section | Field | Description |
@@ -483,13 +486,13 @@ Build the `serialized_space` JSON with all gathered information. Below is the co
 | `config.sample_questions[]` | `id`, `question` | Starter questions shown to users. One question per entry. |
 | `data_sources.tables[]` | `identifier`, `description` (optional) | Unity Catalog tables. `description` is a space-scoped override (array of strings). |
 | `data_sources.metric_views[]` | `identifier`, `description` (optional) | Metric views with pre-defined metrics, dimensions, and aggregations. |
-| `instructions.text_instructions[]` | `id`, `content` | General guidance (max 1 per space). `content` is an array of strings. |
+| `instructions.text_instructions[]` | `id`, `content` | General guidance (max 1 per space). `content` is an array of strings. **Each element must end with `\n`** — the API concatenates elements without separators. |
 | `instructions.example_question_sqls[]` | `id`, `question`, `sql` | Example SQL queries. One question per entry. `sql` is an **array** of line strings with `\n`. |
 | `instructions.sql_functions[]` | `id`, `identifier`, `description` | Unity Catalog UDFs. `description` is a plain string (not array). |
-| `instructions.join_specs[]` | `id`, `left`, `right`, `sql` | Join relationships between tables. `sql` is the join condition (array). |
-| `instructions.sql_snippets.filters[]` | `id`, `sql`, `display_name` | Filter definitions. `sql` is a **plain string** (not array). |
-| `instructions.sql_snippets.expressions[]` | `id`, `sql`, `alias` | Dimension definitions. `sql` is a **plain string** (not array). |
-| `instructions.sql_snippets.measures[]` | `id`, `sql`, `alias` | Measure definitions. `sql` is a **plain string** (not array). |
+| `instructions.join_specs[]` | `id`, `left`, `right`, `sql` | Join relationships. `sql` requires **two elements**: (1) backtick-quoted join condition, (2) `"--rt=FROM_RELATIONSHIP_TYPE_...--"` annotation. |
+| `instructions.sql_snippets.filters[]` | `id`, `sql`, `display_name` | Filter definitions. `sql` is a `string[]` (array). |
+| `instructions.sql_snippets.expressions[]` | `id`, `sql`, `alias` | Dimension definitions. `sql` is a `string[]` (array). |
+| `instructions.sql_snippets.measures[]` | `id`, `sql`, `alias` | Measure definitions. `sql` is a `string[]` (array). |
 | `benchmarks.questions[]` | `id`, `question`, `answer` | Benchmark questions with SQL ground truth. |
 
 **Important Notes:**
@@ -498,7 +501,7 @@ Build the `serialized_space` JSON with all gathered information. Below is the co
 - `sql` (in `example_question_sqls`): Must be an **array of strings**. Each SQL clause should be a separate element with `\n` at the end:
   - Correct: `["SELECT\n", "  col1,\n", "  col2\n", "FROM table\n", "WHERE col1 > 0"]`
   - Wrong: `["SELECT col1, col2FROM tableWHERE col1 > 0"]`
-- `sql` (in `sql_snippets`): Must be a **plain string** (NOT an array): `"SUM(quantity * unit_price)"`
+- `sql` (in `sql_snippets`): Must be a **string array** (`string[]`), same format as `example_question_sqls`: `["SUM(quantity * unit_price)"]`
 - **ID Format**: All IDs must be exactly 32 lowercase hexadecimal characters (no hyphens)
 - **Sorting**: All arrays of objects with `id` fields must be sorted alphabetically by `id`. Tables must be sorted by `identifier`.
 - **Include only what's needed**: Omit sections that don't apply (e.g., skip `metric_views` if none, skip `benchmarks` if not creating them yet)
@@ -719,7 +722,7 @@ This example demonstrates the multi-turn, pause-heavy pattern. Notice the agent 
 - Fiscal year starts April 1st
 - Region codes: AMER = Americas, EMEA = Europe/Middle East/Africa, APJ = Asia Pacific/Japan, LATAM = Latin America
 
-**Join:** orders.product_id = products.product_id (INNER JOIN)
+**Join specs:** orders.product_id = products.product_id (MANY_TO_ONE)
 **Hidden columns:** etl_timestamp, internal_batch_id
 
 Does this look right, or would you like to change anything?"

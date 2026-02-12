@@ -75,9 +75,11 @@ sample_questions_text = [
 ]
 
 # Text instructions (domain-specific guidance)
+# IMPORTANT: Each element must end with \n — the API concatenates elements
+# without separators, so "Rule one." + "Rule two." becomes "Rule one.Rule two."
 text_instruction_lines = [
-    "Revenue = quantity * unit_price.",
-    "Fiscal year starts April 1st.",
+    "Revenue = quantity * unit_price.\n",
+    "Fiscal year starts April 1st.\n",
 ]
 
 # Example SQL queries (one question per SQL entry)
@@ -99,13 +101,13 @@ example_sqls = [
 ]
 
 # SQL expressions — measures, filters, dimensions
-# IMPORTANT: sql is a plain string (NOT an array) for sql_snippets.
+# IMPORTANT: sql is a string[] (array), same format as example_question_sqls.
 # Optional fields on all types: synonyms, instruction, comment, display_name
 sql_snippet_measures = [
     {
         "alias": "total_revenue",
         "display_name": "Total Revenue",
-        "sql": "SUM(quantity * unit_price)",
+        "sql": ["SUM(quantity * unit_price)"],
         "synonyms": ["revenue", "sales", "total sales"],
         "instruction": ["Use for any revenue aggregation"],
         "comment": ["Revenue includes all non-cancelled order line items"],
@@ -114,7 +116,7 @@ sql_snippet_measures = [
 sql_snippet_filters = [
     {
         "display_name": "high value",
-        "sql": "WHERE amount > 1000",
+        "sql": ["WHERE amount > 1000"],
         "synonyms": ["big deal", "large order"],
         "instruction": ["Apply when users ask about high-value or large orders"],
         "comment": ["Threshold aligned with finance team's definition"],
@@ -124,7 +126,7 @@ sql_snippet_expressions = [
     {
         "alias": "order_year",
         "display_name": "Order Year",
-        "sql": "YEAR(order_date)",
+        "sql": ["YEAR(order_date)"],
         "synonyms": ["year"],
         "instruction": ["Use for year-based grouping"],
         "comment": ["Standard date dimension for annual reporting"],
@@ -132,15 +134,21 @@ sql_snippet_expressions = [
 ]
 
 # Join specifications — how tables relate to each other
-# For multi-column joins, create separate join specs (compound AND/OR not supported in sql)
-# Remove this list if tables have foreign keys defined in Unity Catalog
+# IMPORTANT: The sql array requires TWO elements:
+#   1. The join condition using backtick-quoted alias/table references
+#   2. A relationship type annotation: --rt=FROM_RELATIONSHIP_TYPE_...--
+# Valid relationship types: MANY_TO_ONE, ONE_TO_MANY, ONE_TO_ONE, MANY_TO_MANY
+# Without the --rt= annotation, the API rejects the request.
+# For multi-column joins, create separate join specs.
+# Remove this list if tables have foreign keys defined in Unity Catalog.
 join_specs = [
     {
-        "left": {"identifier": "catalog.schema.orders", "alias": "o"},
-        "right": {"identifier": "catalog.schema.products", "alias": "p"},
-        "join_type": "INNER JOIN",
-        "sql": ["o.product_id = p.product_id"],
-        "comment": ["Link orders to product details"],
+        "left": {"identifier": "catalog.schema.orders", "alias": "orders"},
+        "right": {"identifier": "catalog.schema.products", "alias": "products"},
+        "sql": [
+            "`orders`.`product_id` = `products`.`product_id`",
+            "--rt=FROM_RELATIONSHIP_TYPE_MANY_TO_ONE--",
+        ],
         "instruction": ["Use this join for any question about sales by product attribute"],
     },
 ]

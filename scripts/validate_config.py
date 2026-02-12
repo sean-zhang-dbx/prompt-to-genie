@@ -212,6 +212,14 @@ def validate_config(config: dict) -> list[dict]:
                 error(f"{p}.content", "Must be a non-empty array of strings")
             else:
                 check_string_array(f"{p}.content", content)
+                # Check for content elements missing trailing whitespace/newline
+                for j, line in enumerate(content):
+                    if isinstance(line, str) and len(line) > 0 and not line.endswith(("\n", " ")):
+                        warning(
+                            f"{p}.content[{j}]",
+                            f"Content element does not end with '\\n' or a space. "
+                            f"The API concatenates elements without separators — add '\\n' at the end to prevent jammed text."
+                        )
                 # Check for placeholder/stale text patterns in instructions
                 full_text = " ".join(content).lower()
                 stale_patterns = [
@@ -304,17 +312,43 @@ def validate_config(config: dict) -> list[dict]:
             if sql is None or (isinstance(sql, list) and len(sql) == 0):
                 error(f"{p}.sql", "Missing or empty 'sql' field")
             elif isinstance(sql, list):
-                # Warn about compound conditions (AND/OR not supported in single elements)
+                # Check for required --rt= relationship type annotation
+                has_rt = any(isinstance(s, str) and s.startswith("--rt=") for s in sql)
+                if not has_rt:
+                    error(
+                        f"{p}.sql",
+                        "Missing relationship type annotation. The sql array must include a "
+                        "'--rt=FROM_RELATIONSHIP_TYPE_...' element (e.g., '--rt=FROM_RELATIONSHIP_TYPE_MANY_TO_ONE--'). "
+                        "Without this, the API rejects the request with a proto parsing error."
+                    )
+                else:
+                    # Validate the --rt= value
+                    valid_rt_types = {
+                        "--rt=FROM_RELATIONSHIP_TYPE_MANY_TO_ONE--",
+                        "--rt=FROM_RELATIONSHIP_TYPE_ONE_TO_MANY--",
+                        "--rt=FROM_RELATIONSHIP_TYPE_ONE_TO_ONE--",
+                        "--rt=FROM_RELATIONSHIP_TYPE_MANY_TO_MANY--",
+                    }
+                    for j, s in enumerate(sql):
+                        if isinstance(s, str) and s.startswith("--rt=") and s not in valid_rt_types:
+                            warning(
+                                f"{p}.sql[{j}]",
+                                f"Unrecognized relationship type: '{s}'. Expected one of: {', '.join(sorted(valid_rt_types))}"
+                            )
+                # Check join condition elements for AND/OR
                 for j, s in enumerate(sql):
-                    if isinstance(s, str) and re.search(r'\b(AND|OR)\b', s, re.IGNORECASE):
+                    if isinstance(s, str) and not s.startswith("--rt=") and re.search(r'\b(AND|OR)\b', s, re.IGNORECASE):
                         warning(
                             f"{p}.sql[{j}]",
                             "Join spec SQL contains AND/OR — each element must be a single equality. "
-                            "For multi-column joins, use separate join specs with comment/instruction fields indicating they go together."
+                            "For multi-column joins, use separate join specs."
                         )
-            # Warn if missing comment/instruction (recommended)
-            if not js.get("comment"):
-                warning(f"{p}.comment", "Missing 'comment' — adding business context helps Genie choose the right join")
+            # Check left/right have identifier
+            for side in ("left", "right"):
+                side_obj = js.get(side, {})
+                if not side_obj.get("identifier"):
+                    error(f"{p}.{side}.identifier", f"Missing required '{side}.identifier' field")
+            # Warn if missing instruction (recommended)
             if not js.get("instruction"):
                 warning(f"{p}.instruction", "Missing 'instruction' — adding usage guidance helps Genie know when to apply this join")
 
@@ -337,13 +371,15 @@ def validate_config(config: dict) -> list[dict]:
                 sql = sn.get("sql")
                 if sql is None:
                     error(f"{p}.sql", "Missing required 'sql' field")
-                elif isinstance(sql, list):
-                    error(f"{p}.sql", "sql_snippets sql must be a plain string, not an array. "
-                          "Example: \"SUM(amount)\" not [\"SUM(amount)\"]")
-                elif not isinstance(sql, str):
-                    error(f"{p}.sql", f"sql must be a string, got {type(sql).__name__}")
-                elif len(sql.strip()) == 0:
-                    error(f"{p}.sql", "SQL field must not be empty")
+                elif isinstance(sql, str):
+                    error(f"{p}.sql", "sql_snippets sql must be a string array, not a plain string. "
+                          "Example: [\"SUM(amount)\"] not \"SUM(amount)\"")
+                elif not isinstance(sql, list):
+                    error(f"{p}.sql", f"sql must be a string array, got {type(sql).__name__}")
+                elif len(sql) == 0:
+                    error(f"{p}.sql", "SQL array must not be empty")
+                else:
+                    check_string_array(f"{p}.sql", sql)
                 # Check for required name/alias fields
                 if snippet_type == "filters":
                     if not sn.get("display_name"):

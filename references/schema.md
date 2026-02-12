@@ -57,7 +57,7 @@ Complete structure for the `serialized_space` configuration. Include only sectio
     "text_instructions": [
       {
         "id": "b2c3d4e5f6a70000000000000000000b",
-        "content": ["Revenue = quantity * unit_price.", "Fiscal year starts April 1st."]
+        "content": ["Revenue = quantity * unit_price.\n", "Fiscal year starts April 1st."]
       }
     ],
     "example_question_sqls": [
@@ -78,12 +78,13 @@ Complete structure for the `serialized_space` configuration. Include only sectio
     "join_specs": [
       {
         "id": "e5f6a7b8c9d00000000000000000000e",
-        "left": {"identifier": "catalog.schema.orders", "alias": "o"},
-        "right": {"identifier": "catalog.schema.customers", "alias": "c"},
-        "join_type": "LEFT JOIN",
-        "sql": ["o.customer_id = c.customer_id"],
-        "comment": ["Link orders to customer details; LEFT JOIN includes orders with unknown customers"],
-        "instruction": ["Always use this join when relating orders to customer demographics"]
+        "left": {"identifier": "catalog.schema.orders", "alias": "orders"},
+        "right": {"identifier": "catalog.schema.customers", "alias": "customers"},
+        "sql": [
+          "`orders`.`customer_id` = `customers`.`customer_id`",
+          "--rt=FROM_RELATIONSHIP_TYPE_MANY_TO_ONE--"
+        ],
+        "instruction": ["Use this join when relating orders to customer demographics"]
       }
     ],
     "sql_snippets": {
@@ -91,7 +92,7 @@ Complete structure for the `serialized_space` configuration. Include only sectio
         {
           "id": "f6a7b8c9d0e10000000000000000000f",
           "display_name": "high value",
-          "sql": "WHERE amount > 1000",
+          "sql": ["WHERE amount > 1000"],
           "synonyms": ["big deal", "large order"],
           "instruction": ["Apply when users ask about high-value or large orders"],
           "comment": ["Threshold aligned with finance team's definition"]
@@ -102,7 +103,7 @@ Complete structure for the `serialized_space` configuration. Include only sectio
           "id": "a7b8c9d0e1f20000000000000000000a",
           "alias": "order_year",
           "display_name": "Order Year",
-          "sql": "YEAR(order_date)",
+          "sql": ["YEAR(order_date)"],
           "synonyms": ["year"],
           "instruction": ["Use for any year-based grouping of orders"],
           "comment": ["Standard date dimension for annual reporting"]
@@ -113,7 +114,7 @@ Complete structure for the `serialized_space` configuration. Include only sectio
           "id": "b8c9d0e1f2a30000000000000000000b",
           "alias": "total_revenue",
           "display_name": "Total Revenue",
-          "sql": "SUM(quantity * unit_price)",
+          "sql": ["SUM(quantity * unit_price)"],
           "synonyms": ["revenue", "sales", "total sales"],
           "instruction": ["Use for any revenue aggregation"],
           "comment": ["Revenue includes all non-cancelled order line items"]
@@ -183,7 +184,7 @@ Complete structure for the `serialized_space` configuration. Include only sectio
 | Field | Type | Description |
 |-------|------|-------------|
 | `instructions.text_instructions[].id` | string | 32-char hex ID |
-| `instructions.text_instructions[].content` | string[] | Instruction text segments. Max 1 text instruction per space. |
+| `instructions.text_instructions[].content` | string[] | Instruction text segments. Max 1 text instruction per space. **Important:** The API concatenates array elements without separators — each element must end with `\n` or a space to avoid jammed text. |
 | `instructions.example_question_sqls[].id` | string | 32-char hex ID |
 | `instructions.example_question_sqls[].question` | string[] | Single natural language question |
 | `instructions.example_question_sqls[].sql` | string[] | SQL query split by lines with `\n` |
@@ -197,12 +198,20 @@ Complete structure for the `serialized_space` configuration. Include only sectio
 | `instructions.sql_functions[].identifier` | string | Fully qualified UDF name |
 | `instructions.sql_functions[].description` | string | What the function does (plain string, not array) |
 | `instructions.join_specs[].id` | string | 32-char hex ID |
-| `instructions.join_specs[].left` | object | Left table: `identifier` (required), `alias` (optional) |
-| `instructions.join_specs[].right` | object | Right table: `identifier` (required), `alias` (optional) |
-| `instructions.join_specs[].join_type` | string | Join type: `INNER JOIN`, `LEFT JOIN`, etc. (optional) |
-| `instructions.join_specs[].sql` | string[] | Join condition. Each element must be a **single equality** (e.g., `"t1.col = t2.col"`). For multi-column joins, use separate join specs. |
-| `instructions.join_specs[].comment` | string[] | Business context for the relationship (optional) |
+| `instructions.join_specs[].left` | object | Left table: `{"identifier": "catalog.schema.table", "alias": "short_name"}`. `alias` is recommended. |
+| `instructions.join_specs[].right` | object | Right table: `{"identifier": "catalog.schema.table", "alias": "short_name"}`. `alias` is recommended. |
+| `instructions.join_specs[].sql` | string[] | **Two elements required:** (1) Join condition using backtick-quoted alias references (e.g., `` `orders`.`customer_id` = `customers`.`customer_id` ``), (2) Relationship type annotation (e.g., `"--rt=FROM_RELATIONSHIP_TYPE_MANY_TO_ONE--"`). |
 | `instructions.join_specs[].instruction` | string[] | Guidance on when to use this join (optional) |
+
+> **Critical `join_specs` format requirement:** The `sql` array must contain **two elements**:
+> 1. The join condition — use backtick-quoted alias or table name references: `` "`alias`.`column` = `alias`.`column`" ``
+> 2. A **relationship type annotation** — one of:
+>    - `"--rt=FROM_RELATIONSHIP_TYPE_MANY_TO_ONE--"`
+>    - `"--rt=FROM_RELATIONSHIP_TYPE_ONE_TO_MANY--"`
+>    - `"--rt=FROM_RELATIONSHIP_TYPE_ONE_TO_ONE--"`
+>    - `"--rt=FROM_RELATIONSHIP_TYPE_MANY_TO_MANY--"`
+>
+> **Without the `--rt=...--` annotation, the API rejects the request** with a protobuf parsing error. This annotation is required even though it is not documented in the official API reference.
 
 ### sql_snippets (shared fields)
 
@@ -219,11 +228,11 @@ All three snippet types (`filters`, `expressions`, `measures`) support these opt
 
 | Type | Required Fields |
 |------|----------------|
-| `sql_snippets.filters[]` | `id`, `sql` (string), `display_name` |
-| `sql_snippets.expressions[]` | `id`, `sql` (string), `alias` |
-| `sql_snippets.measures[]` | `id`, `sql` (string), `alias` |
+| `sql_snippets.filters[]` | `id`, `sql` (string[]), `display_name` |
+| `sql_snippets.expressions[]` | `id`, `sql` (string[]), `alias` |
+| `sql_snippets.measures[]` | `id`, `sql` (string[]), `alias` |
 
-> **Important:** The `sql` field in `sql_snippets` is a **plain string**, NOT an array. This is different from `example_question_sqls[].sql` which is a `string[]` (array of line strings).
+> **Important:** The `sql` field in `sql_snippets` is a **string array** (`string[]`), the same format as `example_question_sqls[].sql`. Wrap the SQL fragment in a single-element array (e.g., `["SUM(amount)"]`). The API rejects plain strings.
 
 ### benchmarks
 
@@ -244,13 +253,14 @@ All three snippet types (`filters`, `expressions`, `measures`) support these opt
 - `sql` (in `example_question_sqls`): Must be an **array of strings**. Each SQL clause should be a separate element with `\n` at the end:
   - Correct: `["SELECT\n", "  col1,\n", "  col2\n", "FROM table\n", "WHERE col1 > 0"]`
   - Wrong: `["SELECT col1, col2FROM tableWHERE col1 > 0"]`
-- `sql` (in `sql_snippets`): Must be a **plain string** (NOT an array). This is the SQL fragment or expression itself:
-  - Correct: `"SUM(quantity * unit_price)"`
-  - Wrong: `["SUM(quantity * unit_price)"]`
+- `sql` (in `sql_snippets`): Must be a **string array** (`string[]`), same format as `example_question_sqls`. Wrap the SQL fragment in an array:
+  - Correct: `["SUM(quantity * unit_price)"]`
+  - Wrong: `"SUM(quantity * unit_price)"` (plain string — API rejects this)
 - **ID Format**: All IDs must be exactly 32 lowercase hexadecimal characters (no hyphens)
 - **Sorting**: All arrays of objects with `id` fields must be sorted alphabetically by `id`. Tables must be sorted by `identifier`.
 - **Include only what's needed**: Omit sections that don't apply (e.g., skip `metric_views` if none, skip `benchmarks` if not creating them yet)
-- **Join spec constraints**: Each `sql` element must be a single equality expression. For multi-column joins, create separate join specs with `comment`/`instruction` fields indicating they should be used together.
+- **Join spec format**: The `sql` array requires exactly **two elements**: (1) the join condition using backtick-quoted references, and (2) a `--rt=FROM_RELATIONSHIP_TYPE_...--` annotation. Without the relationship type annotation, the API rejects the request. For multi-column joins, create separate join specs.
+- **`text_instructions` content formatting**: The API concatenates `content` array elements without any separator. Each element must end with `\n` or a trailing space to prevent text from being jammed together (e.g., `"Rule one.\n"` not `"Rule one."`)
 - **column_configs**: Usually set post-creation via the manage flow or UI. For initial creation, column descriptions and synonyms can be added via `column_configs` in the API, or later through the Genie space UI. Note: `enable_entity_matching` requires `enable_format_assistance` to be `true` — the API will reject configurations where entity matching is enabled but format assistance is not.
 
 ---

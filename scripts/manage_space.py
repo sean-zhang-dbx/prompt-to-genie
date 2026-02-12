@@ -62,17 +62,20 @@ if join_specs:
     for js in join_specs:
         left = js.get("left", {}).get("identifier", "?")
         right = js.get("right", {}).get("identifier", "?")
-        jtype = js.get("join_type", "JOIN")
-        print(f"  - {left} {jtype} {right}")
+        sql = " ".join(js.get("sql", [])) if isinstance(js.get("sql"), list) else js.get("sql", "?")
+        print(f"  - {left} JOIN {right} ON {sql}")
 total_snippets = len(snippet_measures) + len(snippet_filters) + len(snippet_expressions)
 if total_snippets:
     print(f"\nSQL Expressions: {total_snippets} (measures: {len(snippet_measures)}, filters: {len(snippet_filters)}, dimensions: {len(snippet_expressions)})")
     for m in snippet_measures:
-        print(f"  - [measure] {m.get('alias', '?')}: {m.get('sql', '?')}")
+        sql = " ".join(m.get("sql", [])) if isinstance(m.get("sql"), list) else m.get("sql", "?")
+        print(f"  - [measure] {m.get('alias', '?')}: {sql}")
     for f in snippet_filters:
-        print(f"  - [filter] {f.get('display_name', '?')}: {f.get('sql', '?')}")
+        sql = " ".join(f.get("sql", [])) if isinstance(f.get("sql"), list) else f.get("sql", "?")
+        print(f"  - [filter] {f.get('display_name', '?')}: {sql}")
     for e in snippet_expressions:
-        print(f"  - [dimension] {e.get('alias', '?')}: {e.get('sql', '?')}")
+        sql = " ".join(e.get("sql", [])) if isinstance(e.get("sql"), list) else e.get("sql", "?")
+        print(f"  - [dimension] {e.get('alias', '?')}: {sql}")
 print(f"\nText Instructions: {len(text_instr)} block(s)")
 if text_instr:
     for line in text_instr[0].get("content", []):
