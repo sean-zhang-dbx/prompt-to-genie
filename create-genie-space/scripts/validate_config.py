@@ -152,10 +152,19 @@ def validate_config(config: dict) -> list[dict]:
                 error(f"{p}.identifier", "Missing required 'identifier' field")
             elif not TABLE_ID_PATTERN.match(ident):
                 error(f"{p}.identifier", f"'{ident}' must be three-level namespace: catalog.schema.table")
-            # Check column_configs sorting
+            # Check column_configs sorting and prompt matching consistency
             col_configs = tbl.get("column_configs", [])
             if col_configs:
                 check_sorted(f"{p}.column_configs", col_configs, lambda x: x.get("column_name", ""), "column_name")
+                for j, cc in enumerate(col_configs):
+                    cp = f"{p}.column_configs[{j}]"
+                    col_name = cc.get("column_name", f"index {j}")
+                    # Entity matching requires format assistance
+                    if cc.get("enable_entity_matching") and not cc.get("enable_format_assistance"):
+                        error(cp, f"Column '{col_name}' has enable_entity_matching=true but enable_format_assistance is not true. Entity matching requires format assistance to be enabled.")
+                    # Warn if excluded column has prompt matching on
+                    if cc.get("exclude") and (cc.get("enable_entity_matching") or cc.get("enable_format_assistance")):
+                        warning(cp, f"Column '{col_name}' is excluded but has prompt matching enabled. Consider disabling enable_entity_matching and enable_format_assistance on excluded columns.")
         if len(tables) > 25:
             warning("data_sources.tables", f"Space has {len(tables)} tables (max 25). Recommend ≤5 for best accuracy.")
         elif len(tables) > 5:

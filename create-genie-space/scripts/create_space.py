@@ -19,9 +19,49 @@ w = WorkspaceClient()
 
 # Tables to include (sorted alphabetically by identifier)
 # "description" overrides the Unity Catalog description for this space only
+# "column_configs" sets per-column metadata (prompt matching):
+#   - enable_format_assistance: provides representative values (auto-enabled via UI)
+#   - enable_entity_matching: maps user terms to actual values (requires format_assistance)
+#   - exclude: hides columns from Genie (reduces ambiguity)
+# When creating via API, set both flags explicitly on filter/category columns.
 tables = sorted([
-    {"identifier": "catalog.schema.orders", "description": ["Daily sales transactions with line-item details"]},
-    {"identifier": "catalog.schema.products", "description": ["Product catalog with categories and pricing"]},
+    {
+        "identifier": "catalog.schema.orders",
+        "description": ["Daily sales transactions with line-item details"],
+        "column_configs": sorted([
+            {
+                "id": secrets.token_hex(16),
+                "column_name": "region",
+                "description": ["Sales region code: AMER, EMEA, APJ, LATAM"],
+                "synonyms": ["area", "territory"],
+                "enable_entity_matching": True,
+                "enable_format_assistance": True,
+            },
+            {
+                "id": secrets.token_hex(16),
+                "column_name": "status",
+                "enable_entity_matching": True,
+                "enable_format_assistance": True,
+            },
+            {
+                "id": secrets.token_hex(16),
+                "column_name": "etl_timestamp",
+                "exclude": True,  # Hide irrelevant columns from Genie
+            },
+        ], key=lambda x: x["column_name"]),
+    },
+    {
+        "identifier": "catalog.schema.products",
+        "description": ["Product catalog with categories and pricing"],
+        "column_configs": sorted([
+            {
+                "id": secrets.token_hex(16),
+                "column_name": "category",
+                "enable_entity_matching": True,
+                "enable_format_assistance": True,
+            },
+        ], key=lambda x: x["column_name"]),
+    },
 ], key=lambda x: x["identifier"])
 
 # Metric views — pre-defined metrics, dimensions, and aggregations

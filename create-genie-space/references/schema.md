@@ -24,17 +24,30 @@ Complete structure for the `serialized_space` configuration. Include only sectio
             "column_name": "region",
             "description": ["Sales region code: AMER, EMEA, APJ, LATAM"],
             "synonyms": ["area", "territory", "sales region"],
+            "exclude": false,
             "enable_entity_matching": true,
             "enable_format_assistance": true
           },
           {
             "id": "aa11bb22cc330000000000000000000b",
             "column_name": "etl_timestamp",
-            "exclude": true
+            "exclude": true,
+            "enable_entity_matching": false,
+            "enable_format_assistance": false
           }
         ]
       },
-      {"identifier": "catalog.schema.products"}
+      {
+        "identifier": "catalog.schema.products",
+        "column_configs": [
+          {
+            "id": "aa11bb22cc330000000000000000000c",
+            "column_name": "category",
+            "enable_entity_matching": true,
+            "enable_format_assistance": true
+          }
+        ]
+      }
     ],
     "metric_views": [
       {"identifier": "catalog.schema.revenue_metrics", "description": ["Revenue metrics"]}
@@ -141,12 +154,26 @@ Complete structure for the `serialized_space` configuration. Include only sectio
 | `data_sources.tables[].column_configs[].description` | string[] | Contextual description beyond the column name |
 | `data_sources.tables[].column_configs[].synonyms` | string[] | Alternative names users might use for this column |
 | `data_sources.tables[].column_configs[].exclude` | boolean | Hide this column from Genie (default: false) |
-| `data_sources.tables[].column_configs[].enable_entity_matching` | boolean | **(v2 only)** Match user terms to column values (e.g., "California" → "CA") |
-| `data_sources.tables[].column_configs[].enable_format_assistance` | boolean | **(v2 only)** Fetch sample values to help Genie understand data distribution |
+| `data_sources.tables[].column_configs[].enable_format_assistance` | boolean | **(v2 only)** Provide representative values so Genie understands data types and formatting. **Enabled by default** when tables are added. Must be `true` for entity matching to work. |
+| `data_sources.tables[].column_configs[].enable_entity_matching` | boolean | **(v2 only)** Match user terms to actual column values (e.g., "California" → "CA"). **Enabled by default** when tables are added. Requires `enable_format_assistance: true`. Supports up to 120 columns, 1,024 distinct values per column (max 127 chars each). |
 | `data_sources.metric_views[].identifier` | string | Fully qualified metric view name |
 | `data_sources.metric_views[].description` | string[] | What the metric view computes |
 
-> **v1 vs v2:** Spaces with `"version": 2` reject v1 fields (`get_example_values`, `build_value_dictionary`). Use the v2 equivalents (`enable_format_assistance`, `enable_entity_matching`) instead. Including v1 fields in a v2 space will cause API errors.
+> **v1 vs v2:** Spaces with `"version": 2` reject v1 column_config fields. Use the v2 equivalents instead:
+> - `get_example_values` (v1) → `enable_format_assistance` (v2)
+> - `build_value_dictionary` (v1) → `enable_entity_matching` (v2)
+>
+> Including v1 fields in a v2 space will cause API errors. Always use the v2 field names.
+
+> **Prompt matching overview:** "Prompt matching" is the umbrella term for two features that work together:
+> - **Format assistance** — provides representative values so Genie understands data types and formatting patterns. Automatically enabled for eligible columns when tables are added to a space.
+> - **Entity matching** — provides curated lists of distinct values so Genie can map user terms to actual data (e.g., "California" → "CA"). Requires `enable_format_assistance: true` (turning off format assistance automatically disables entity matching).
+>
+> Both are **enabled by default** when tables are added via the UI. When creating spaces via API with `column_configs`, set both explicitly to `true` for filter/category columns to ensure they are active.
+>
+> **Entity matching limits:** Up to 120 columns per space, 1,024 distinct values per column, max 127 characters per value. Tables with row filters or column masks are excluded from prompt matching.
+>
+> **When to disable:** Turn off format assistance (and entity matching) on columns that are excluded (`exclude: true`) or on high-cardinality freetext columns where entity matching adds no value.
 
 ### instructions
 
@@ -211,7 +238,7 @@ All three snippet types (`filters`, `expressions`, `measures`) support these opt
 - **Sorting**: All arrays of objects with `id` fields must be sorted alphabetically by `id`. Tables must be sorted by `identifier`.
 - **Include only what's needed**: Omit sections that don't apply (e.g., skip `metric_views` if none, skip `benchmarks` if not creating them yet)
 - **Join spec constraints**: Each `sql` element must be a single equality expression. For multi-column joins, create separate join specs with `comment`/`instruction` fields indicating they should be used together.
-- **column_configs**: Usually set post-creation via the manage flow or UI. For initial creation, column descriptions and synonyms can be added via `column_configs` in the API, or later through the Genie space UI.
+- **column_configs**: Usually set post-creation via the manage flow or UI. For initial creation, column descriptions and synonyms can be added via `column_configs` in the API, or later through the Genie space UI. Note: `enable_entity_matching` requires `enable_format_assistance` to be `true` — the API will reject configurations where entity matching is enabled but format assistance is not.
 
 ---
 

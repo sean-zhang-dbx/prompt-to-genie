@@ -52,7 +52,7 @@ Use this reference to diagnose and fix common problems with Genie spaces.
 ### Filtering Errors (Wrong Values)
 **Symptom:** `WHERE` clause filters on "California" instead of "CA", or similar value mismatches.
 
-**Fix:** Ensure relevant columns have **Example values** and **Value dictionaries** enabled in the knowledge store. Refresh values if new data has been added.
+**Fix:** Ensure relevant columns have **format assistance** and **entity matching** enabled (Configure > Data > column > Advanced settings). Entity matching requires format assistance to be on. Refresh prompt matching data if new values have been added (kebab menu > Refresh prompt matching).
 
 ### Incorrect Joins
 **Symptom:** Genie joins tables incorrectly or doesn't know how to join them.
