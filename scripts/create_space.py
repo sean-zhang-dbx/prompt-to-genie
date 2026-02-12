@@ -28,7 +28,6 @@ w = WorkspaceClient()
 # to True for every string/category column users will filter on.
 tables = sorted([
     {
-        "id": secrets.token_hex(16),
         "identifier": "catalog.schema.orders",
         "description": ["Daily sales transactions with line-item details"],
         "column_configs": sorted([
@@ -54,7 +53,6 @@ tables = sorted([
         ], key=lambda x: x["column_name"]),
     },
     {
-        "id": secrets.token_hex(16),
         "identifier": "catalog.schema.products",
         "description": ["Product catalog with categories and pricing"],
         "column_configs": sorted([
@@ -71,7 +69,7 @@ tables = sorted([
 # Metric views — pre-defined metrics, dimensions, and aggregations
 # Remove this list if not using metric views
 metric_views = sorted([
-    {"id": secrets.token_hex(16), "identifier": "catalog.schema.revenue_metrics", "description": ["Revenue metrics by product and region"]},
+    {"identifier": "catalog.schema.revenue_metrics", "description": ["Revenue metrics by product and region"]},
 ], key=lambda x: x["identifier"])
 
 # Sample questions for business users (one question per entry)

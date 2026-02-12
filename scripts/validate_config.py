@@ -147,11 +147,6 @@ def validate_config(config: dict) -> list[dict]:
         check_sorted("data_sources.tables", tables, lambda x: x.get("identifier", ""), "identifier")
         for i, tbl in enumerate(tables):
             p = f"data_sources.tables[{i}]"
-            tbl_id = tbl.get("id")
-            if tbl_id is None:
-                error(f"{p}.id", "Missing required 'id' field on table")
-            else:
-                check_id(f"{p}.id", tbl_id)
             ident = tbl.get("identifier")
             if ident is None:
                 error(f"{p}.identifier", "Missing required 'identifier' field")
@@ -184,11 +179,6 @@ def validate_config(config: dict) -> list[dict]:
         check_sorted("data_sources.metric_views", metric_views, lambda x: x.get("identifier", ""), "identifier")
         for i, mv in enumerate(metric_views):
             p = f"data_sources.metric_views[{i}]"
-            mv_id = mv.get("id")
-            if mv_id is None:
-                error(f"{p}.id", "Missing required 'id' field on metric view")
-            else:
-                check_id(f"{p}.id", mv_id)
             ident = mv.get("identifier")
             if ident is None:
                 error(f"{p}.identifier", "Missing required 'identifier' field")

@@ -16,7 +16,6 @@ Complete structure for the `serialized_space` configuration. Include only sectio
   "data_sources": {
     "tables": [
       {
-        "id": "a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5",
         "identifier": "catalog.schema.orders",
         "description": ["Daily sales transactions with line-item details"],
         "column_configs": [
@@ -39,7 +38,6 @@ Complete structure for the `serialized_space` configuration. Include only sectio
         ]
       },
       {
-        "id": "b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6",
         "identifier": "catalog.schema.products",
         "column_configs": [
           {
@@ -53,7 +51,6 @@ Complete structure for the `serialized_space` configuration. Include only sectio
     ],
     "metric_views": [
       {
-        "id": "c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7",
         "identifier": "catalog.schema.revenue_metrics",
         "description": ["Revenue metrics"]
       }
@@ -154,7 +151,6 @@ Complete structure for the `serialized_space` configuration. Include only sectio
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `data_sources.tables[].id` | string | 32-char lowercase hex ID |
 | `data_sources.tables[].identifier` | string | Fully qualified table name (`catalog.schema.table`) |
 | `data_sources.tables[].description` | string[] | Space-scoped description override (optional) |
 | `data_sources.tables[].column_configs[]` | array | Per-column configuration (optional — set via API or manage flow) |
@@ -165,7 +161,6 @@ Complete structure for the `serialized_space` configuration. Include only sectio
 | `data_sources.tables[].column_configs[].exclude` | boolean | Hide this column from Genie (default: false) |
 | `data_sources.tables[].column_configs[].enable_format_assistance` | boolean | **(v2 only)** Provide representative values so Genie understands data types and formatting. Auto-enabled via UI but **OFF by default via API** — must be set explicitly. Must be `true` for entity matching to work. |
 | `data_sources.tables[].column_configs[].enable_entity_matching` | boolean | **(v2 only)** Match user terms to actual column values (e.g., "California" → "CA"). Auto-enabled via UI but **OFF by default via API** — must be set explicitly. Requires `enable_format_assistance: true`. Supports up to 120 columns, 1,024 distinct values per column (max 127 chars each). |
-| `data_sources.metric_views[].id` | string | 32-char lowercase hex ID |
 | `data_sources.metric_views[].identifier` | string | Fully qualified metric view name |
 | `data_sources.metric_views[].description` | string[] | What the metric view computes |
 

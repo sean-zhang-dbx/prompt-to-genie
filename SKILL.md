@@ -415,11 +415,11 @@ Build the `serialized_space` JSON with all gathered information. Below is the co
   },
   "data_sources": {
     "tables": [
-      {"id": "a0b1c2d3e4f50000000000000000000a", "identifier": "catalog.schema.table1", "description": ["Description of table1"]},
-      {"id": "a0b1c2d3e4f50000000000000000000b", "identifier": "catalog.schema.table2"}
+      {"identifier": "catalog.schema.table1", "description": ["Description of table1"]},
+      {"identifier": "catalog.schema.table2"}
     ],
     "metric_views": [
-      {"id": "b0c1d2e3f4a50000000000000000000a", "identifier": "catalog.schema.metric_view1", "description": ["Revenue metrics"]}
+      {"identifier": "catalog.schema.metric_view1", "description": ["Revenue metrics"]}
     ]
   },
   "instructions": {
@@ -481,8 +481,8 @@ Build the `serialized_space` JSON with all gathered information. Below is the co
 | Section | Field | Description |
 |---------|-------|-------------|
 | `config.sample_questions[]` | `id`, `question` | Starter questions shown to users. One question per entry. |
-| `data_sources.tables[]` | `id`, `identifier`, `description` (optional) | Unity Catalog tables. `id` is 32-char hex. `description` is a space-scoped override (array of strings). |
-| `data_sources.metric_views[]` | `id`, `identifier`, `description` (optional) | Metric views with pre-defined metrics, dimensions, and aggregations. `id` is 32-char hex. |
+| `data_sources.tables[]` | `identifier`, `description` (optional) | Unity Catalog tables. `description` is a space-scoped override (array of strings). |
+| `data_sources.metric_views[]` | `identifier`, `description` (optional) | Metric views with pre-defined metrics, dimensions, and aggregations. |
 | `instructions.text_instructions[]` | `id`, `content` | General guidance (max 1 per space). `content` is an array of strings. |
 | `instructions.example_question_sqls[]` | `id`, `question`, `sql` | Example SQL queries. One question per entry. `sql` is an **array** of line strings with `\n`. |
 | `instructions.sql_functions[]` | `id`, `identifier`, `description` | Unity Catalog UDFs. `description` is a plain string (not array). |
