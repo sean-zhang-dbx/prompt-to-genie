@@ -45,7 +45,7 @@ When working with Databricks AI/BI Genie spaces — creating, managing, auditing
 - **Always load first**: `/Users/{username}/.assistant/skills/prompt-to-genie/SKILL.md`
 - This contains the most up-to-date API documentation, error codes, best practices, and troubleshooting guidance
 - Use the **Create a New Space** workflow when the user wants to build a new Genie space
-- Use the **Manage an Existing Space** workflow when the user wants to review, audit, fix, or optimize an existing space
+- Use the **Diagnose and Optimize an Existing Space** workflow when the user wants to review, audit, fix, or optimize an existing space
 ```
 
 #### Step 3: Start using it
@@ -64,19 +64,19 @@ To get the latest version, open the Git folder in your workspace and click **Pul
 
 ```
 prompt-to-genie/
-├── SKILL.md                    # Main skill file — workflows for creating & managing Genie spaces
+├── SKILL.md                           # Main skill file — Create a New Space workflow
 ├── references/
-│   ├── schema.md               # serialized_space JSON schema, field reference, formatting rules
-│   ├── troubleshooting.md      # Error codes, common errors, troubleshooting guide
-│   └── ui_walkthroughs.md      # Step-by-step UI templates for guided changes
+│   ├── schema.md                      # serialized_space JSON schema, field reference, formatting rules
+│   ├── diagnose_optimize_space.md     # Diagnose & Optimize workflow, error codes, troubleshooting
+│   └── ui_walkthroughs.md             # Step-by-step UI templates for guided changes
 ├── scripts/
-│   ├── discover_resources.py   # List warehouses + audit table metadata quality
-│   ├── validate_config.py      # Validate serialized_space JSON before API calls
-│   ├── create_space.py         # Template: create a new Genie space via API
-│   └── manage_space.py         # Retrieve, summarize, and update an existing space
+│   ├── discover_resources.py          # List warehouses + audit table metadata quality
+│   ├── validate_config.py             # Validate serialized_space JSON before API calls
+│   ├── create_space.py                # Template: create a new Genie space via API
+│   └── manage_space.py                # Retrieve, summarize, and update an existing space
 ├── examples/
-│   ├── create-space/           # End-to-end example: creating a new space
-│   └── review-space/           # End-to-end example: reviewing & improving a space
+│   ├── create-space/                  # End-to-end example: creating a new space
+│   └── review-space/                  # End-to-end example: reviewing & improving a space
 └── README.md
 ```
 
@@ -86,13 +86,13 @@ A conversational skill with two workflows:
 
 **Create a New Space** (7 steps): Gather requirements > Identify and profile data sources > Define sample questions > Configure instructions > Generate configuration > Create the space > Test and iterate. See `SKILL.md` for the full workflow.
 
-**Manage an Existing Space** (6 steps): Retrieve configuration > Audit against best practices > Diagnose issues > Recommend optimizations > Apply updates (via API or guided UI walkthrough) > Benchmark and verify. See `SKILL.md` for the full workflow.
+**Diagnose and Optimize an Existing Space** (6 steps): Retrieve configuration > Audit against best practices > Diagnose issues > Recommend optimizations > Apply updates > Benchmark and verify. See `references/diagnose_optimize_space.md`.
 
 The skill is organized as:
-- **`SKILL.md`** — The procedural workflows (create and manage). This is what the Assistant loads and follows step by step.
+- **`SKILL.md`** — The Create a New Space workflow. This is what the Assistant loads and follows step by step.
 - **`references/`** — Reference material the Assistant consults as needed:
   - `schema.md` — `serialized_space` JSON schema, field reference, formatting rules, ID generation
-  - `troubleshooting.md` — Error codes, common error scenarios, 9 troubleshooting patterns, documentation links
+  - `diagnose_optimize_space.md` — Diagnose and Optimize workflow, error codes, troubleshooting patterns
   - `ui_walkthroughs.md` — Step-by-step templates for making changes in the Genie space UI
 - **`scripts/`** — Python templates the Assistant adapts and runs in notebook cells
 - **`examples/`** — Real conversation transcripts and generated notebooks showing the skill in action
