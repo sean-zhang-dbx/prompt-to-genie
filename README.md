@@ -50,7 +50,7 @@ When working with Databricks AI/BI Genie spaces — creating, managing, auditing
 
 #### Step 3: Start using it
 
-Open the Databricks Assistant in agent mode and ask something like:
+Open the Databricks Assistant in agent mode with a blank Notebook open and ask something like:
 
 > "I want to create a Genie space for our sales team to analyze revenue by product and region."
 
@@ -74,9 +74,6 @@ prompt-to-genie/
 │   ├── validate_config.py             # Validate serialized_space JSON before API calls
 │   ├── create_space.py                # Template: create a new Genie space via API
 │   └── manage_space.py                # Retrieve, summarize, and update an existing space
-├── examples/
-│   ├── create-space/                  # End-to-end example: creating a new space
-│   └── review-space/                  # End-to-end example: reviewing & improving a space
 └── README.md
 ```
 
