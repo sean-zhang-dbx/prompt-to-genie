@@ -54,7 +54,7 @@ Open the Databricks Assistant in agent mode with a blank Notebook open and ask s
 
 > "I want to create a Genie space for our sales team to analyze revenue by product and region."
 
-The Assistant will automatically load the skill and walk you through the process conversationally. Note that at times, the Assistant may reference its internal documentation instead of the skill, especially for creating the final JSON. Manually prompt the Assistant to reference by using `@schema.md`, as the current documentation is outdated.
+The Assistant will automatically load the skill and walk you through the process conversationally. Note that at times, the Assistant may reference its internal documentation instead of the skill, especially for creating the final JSON. Manually prompt the Assistant to reference the schema provided by using `@schema.md`, as the current documentation is outdated.
 
 ### Updating
 
