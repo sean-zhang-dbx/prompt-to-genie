@@ -48,7 +48,7 @@ When working with Databricks AI/BI Genie spaces — creating, managing, auditing
 - Use the **Diagnose and Optimize an Existing Space** workflow when the user wants to review, audit, fix, or optimize an existing space
 ```
 
-#### Step 3: Start using it
+#### Step 3: Start using it with a Databricks Notebook
 
 Open the Databricks Assistant in agent mode with a blank Notebook open and ask something like:
 
