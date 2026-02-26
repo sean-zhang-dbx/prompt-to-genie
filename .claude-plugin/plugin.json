@@ -1,0 +1,11 @@
+{
+  "name": "prompt-to-genie",
+  "description": "Create and manage Databricks AI/BI Genie spaces using natural language -- configure data sources, joins, SQL snippets, instructions, and benchmarks via the Genie API.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Sean Zhang",
+    "email": "sean.zhang@databricks.com"
+  },
+  "keywords": ["databricks", "genie", "aibi", "sql", "analytics"],
+  "skills": "./skills/"
+}
