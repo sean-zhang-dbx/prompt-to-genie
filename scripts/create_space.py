@@ -100,38 +100,45 @@ example_sqls = [
     },
 ]
 
-# Benchmark questions (REQUIRED) — organized in two tiers.
+# Benchmark questions (REQUIRED) — organized into Core and Stretch.
 #
-# Tier 1 (train-aligned): Original example SQL question + alternate phrasings.
+# IMPORTANT: Questions must be UNAMBIGUOUS. If a question could be answered
+# by multiple different SQL queries, make it more specific. Include the exact
+# metric, grouping, count, and scope so the ground truth SQL is the only
+# reasonable interpretation.
+#   Bad:  "Show me top products" (top by what? how many?)
+#   Good: "What are the top 10 products ranked by total revenue?"
+#
+# Core: Original example SQL question + alternate phrasings.
 #   Ground truth = EXACT SAME SQL from example_sqls above. Do not rewrite it.
 #   Expected accuracy: high (80-100%). Failures indicate a space config issue.
 #
-# Tier 2 (test / generalization): New questions without example SQL.
+# Stretch: New questions without example SQL.
 #   Ground truth = independently written SQL following same conventions.
 #   Expected accuracy: naturally lower. Low scores show where to add example SQL.
 
-# --- Tier 1: train-aligned (reuse exact example SQL as ground truth) ---
-tier1_benchmarks = [
+# --- Core benchmarks (reuse exact example SQL as ground truth) ---
+core_benchmarks = [
     {
         "question": ["What are total sales by product category?"],  # Original question (smoke test)
         "answer_sql": example_sqls[0]["sql"],  # Exact same SQL
     },
     {
-        "question": ["Break down revenue by product type"],  # Alternate phrasing
+        "question": ["Break down total revenue by product category"],  # Alternate phrasing
         "answer_sql": example_sqls[0]["sql"],  # Exact same SQL
     },
     {
-        "question": ["Show me sales broken out by product category"],  # Alternate phrasing
+        "question": ["Show total sales grouped by product category, highest first"],  # Alternate phrasing
         "answer_sql": example_sqls[0]["sql"],  # Exact same SQL
     },
 ]
 
-# --- Tier 2: test / generalization (independently written SQL) ---
-tier2_benchmarks = [
+# --- Stretch benchmarks (independently written SQL) ---
+stretch_benchmarks = [
     {
-        "question": ["How much did we sell last month?"],
+        "question": ["What was total revenue last month?"],
         "answer_sql": [
-            "SELECT SUM(quantity * unit_price) as total_sales\n",
+            "SELECT SUM(quantity * unit_price) as total_revenue\n",
             "FROM catalog.schema.orders\n",
             "WHERE order_date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL 1 MONTH)\n",
             "AND order_date < DATE_TRUNC('month', CURRENT_DATE)",
@@ -139,7 +146,7 @@ tier2_benchmarks = [
     },
 ]
 
-benchmark_questions = tier1_benchmarks + tier2_benchmarks
+benchmark_questions = core_benchmarks + stretch_benchmarks
 
 # SQL expressions — measures, filters, dimensions
 # IMPORTANT: sql is a string[] (array), same format as example_question_sqls.
