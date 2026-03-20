@@ -475,6 +475,8 @@ def validate_config(config: dict) -> list[dict]:
     # --- benchmarks ---
     benchmarks = config.get("benchmarks", {})
     bench_questions = benchmarks.get("questions", [])
+    if not bench_questions:
+        warning("benchmarks", "No benchmark questions found. Benchmarks are recommended for every space — add 10-20 questions with SQL ground truth to track accuracy.")
     if bench_questions:
         check_array_size("benchmarks.questions", bench_questions)
         check_sorted("benchmarks.questions", bench_questions, lambda x: x.get("id", ""), "id")
@@ -735,7 +737,7 @@ else:
         print(f"  SQL expressions: {total_snippets} (measures: {len(snippet_measures)}, filters: {len(snippet_filters)}, dimensions: {len(snippet_expressions)})")
     else:
         print(f"  SQL expressions: 0")
-    print(f"  Benchmarks: {len(bench_qs)}")
+    print(f"  Benchmarks: {len(bench_qs)}" + (" ⚠️  (none — add 10-20 to track accuracy)" if not bench_qs else ""))
     total_instr = len(example_sqls) + len(sql_functions) + (1 if text_instr else 0)
     print(f"  Instruction budget: {total_instr}/100")
 

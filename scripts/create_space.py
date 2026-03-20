@@ -100,6 +100,45 @@ example_sqls = [
     },
 ]
 
+# Benchmark questions (REQUIRED) — alternate phrasings of sample/example SQL questions
+# These test whether Genie generalizes beyond the exact example SQL wording.
+# Derive 2-3 phrasings per example SQL query; use the same ground truth SQL.
+benchmark_questions = [
+    {
+        "question": ["How much did we sell last month?"],
+        "answer_sql": [
+            "SELECT SUM(quantity * unit_price) as total_sales\n",
+            "FROM catalog.schema.orders\n",
+            "WHERE order_date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL 1 MONTH)\n",
+            "AND order_date < DATE_TRUNC('month', CURRENT_DATE)",
+        ],
+    },
+    {
+        "question": ["Break down revenue by product type"],
+        "answer_sql": [
+            "SELECT\n",
+            "  p.category,\n",
+            "  SUM(o.quantity * o.unit_price) as total_sales\n",
+            "FROM catalog.schema.orders o\n",
+            "JOIN catalog.schema.products p ON o.product_id = p.product_id\n",
+            "GROUP BY p.category\n",
+            "ORDER BY total_sales DESC",
+        ],
+    },
+    {
+        "question": ["Show me sales broken out by product category"],
+        "answer_sql": [
+            "SELECT\n",
+            "  p.category,\n",
+            "  SUM(o.quantity * o.unit_price) as total_sales\n",
+            "FROM catalog.schema.orders o\n",
+            "JOIN catalog.schema.products p ON o.product_id = p.product_id\n",
+            "GROUP BY p.category\n",
+            "ORDER BY total_sales DESC",
+        ],
+    },
+]
+
 # SQL expressions — measures, filters, dimensions
 # IMPORTANT: sql is a string[] (array), same format as example_question_sqls.
 # IMPORTANT: Column references MUST be table-qualified (table_name.column_name).
@@ -229,6 +268,19 @@ config = {
         ),
         "sql_functions": sorted(
             [{"id": secrets.token_hex(16), **sf} for sf in sql_functions],
+            key=lambda x: x["id"],
+        ),
+    },
+    "benchmarks": {
+        "questions": sorted(
+            [
+                {
+                    "id": secrets.token_hex(16),
+                    "question": [bq["question"][0]],
+                    "answer": [{"format": "SQL", "content": bq["answer_sql"]}],
+                }
+                for bq in benchmark_questions
+            ],
             key=lambda x: x["id"],
         ),
     },

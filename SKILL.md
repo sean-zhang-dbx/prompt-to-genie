@@ -371,6 +371,18 @@ A Genie space supports up to **100 instructions total**, counted as:
 
 Keep this budget in mind when adding instructions — prioritize quality over quantity.
 
+### 4g: Plan Benchmarks (Required)
+
+Every new space **must** include benchmarks in its initial configuration. Benchmarks are the test suite for your space — they verify Genie can generalize beyond the exact example SQL questions you provided.
+
+**Derivation strategy:**
+- For each **example SQL query** from Step 4b, create **2-3 alternate phrasings** of the same question. Use the same ground truth SQL for all phrasings.
+- For **sample questions** (Step 3) that don't have a corresponding example SQL, write a ground truth SQL query.
+- Target **10-20 total benchmark questions** covering the space's core use cases.
+- Benchmark questions should sound like real users — vary vocabulary, sentence structure, and level of specificity.
+
+**Important:** Benchmark SQL must be validated the same way as example SQL (execute before creation). Include benchmarks in the `serialized_space` JSON under the `benchmarks` key — see [references/schema.md](references/schema.md) for the schema.
+
 ## Step 4.5: Discover Available Resources
 
 If the user doesn't know their warehouse ID or workspace URL, help them discover available resources.
@@ -391,7 +403,8 @@ If the user doesn't know their warehouse ID or workspace URL, help them discover
 > - *SQL expressions: [list measures, filters, dimensions with their definitions]*
 > - *Example SQL queries: [list question + brief description of each]*
 > - *Text instructions: [summarize key rules]*
-> - *Join specs: [list table relationships]*"
+> - *Join specs: [list table relationships]*
+> - *Benchmarks: [count] questions covering [list which example SQL / sample questions they test]*"
 >
 > **Only proceed to generate the configuration after the user confirms.** This is your last checkpoint before building — any corrections here are easy, but corrections after creation require the diagnose and optimize workflow.
 
@@ -408,7 +421,8 @@ Build the `serialized_space` JSON using the schema and examples in [references/s
 - Filters must **NOT** include the `WHERE` keyword — only the boolean condition
 - `join_specs.sql` requires **two elements**: (1) backtick-quoted join condition, (2) `"--rt=FROM_RELATIONSHIP_TYPE_...--"` annotation
 - `text_instructions.content` elements must end with `\n` — the API concatenates without separators
-- Include only what's needed — omit sections that don't apply
+- `benchmarks` section is **required** — include at least one benchmark per example SQL query with 2-3 alternate phrasings each. Benchmark IDs must be unique across both `sample_questions` and `benchmarks.questions`.
+- Include only what's needed for other sections — omit sections that don't apply (e.g., skip `metric_views` if none)
 
 
 ## Step 6: Create the Space
@@ -536,28 +550,19 @@ After creating the space, **the curator should be the first user**. Testing and 
 
 ### Benchmarks
 
-Use **benchmarks** to systematically evaluate accuracy as you refine the space. Each space supports up to **500 benchmark questions**.
+Your space ships with benchmarks from Step 4g. After creation, run them and iterate:
 
-**Creating benchmarks:**
-- Write benchmark questions that reflect realistic phrasings from real users
-- Include a **SQL answer** (ground truth) for each question — only questions with SQL answers can be auto-scored
-- Add **2-4 alternate phrasings** of the same question with the same SQL answer to test Genie's robustness
-- Click **Add as benchmark** on any response in the chat to add it directly
-
-**Running benchmarks:**
-- Run all benchmarks or a selected subset from the **Benchmarks** tab
-- Each question runs as a new conversation (no prior context)
-- Genie generates SQL and the results are compared against your ground truth
-
-**Interpreting ratings:**
+- Run all benchmarks or a selected subset from the **Benchmarks** tab. Each question runs as a **new conversation** (no prior context).
+- Review results in the **Evaluations** tab — each run is timestamped with accuracy and status.
+- To add more benchmarks post-creation, click **Add as benchmark** on any chat response, or use the **Benchmarks** tab directly.
 
 | Rating | Condition |
 |--------|-----------|
-| **Good** | Generated SQL or result set matches ground truth (including same data in different sort order, or numeric values matching to 4 significant digits) |
+| **Good** | Generated SQL or result set matches ground truth (including different sort order or numeric values matching to 4 significant digits) |
 | **Bad** | Empty result set, error, extra columns, or different single-cell result |
 | **Manual review** | Genie couldn't assess, or no SQL answer was provided |
 
-**Iterate:** After each benchmark run, review low-scoring questions, fix the root cause (add example SQL, refine instructions, improve metadata), then re-run to measure improvement.
+**Iterate:** Review low-scoring questions, fix the root cause (add example SQL, refine instructions, improve metadata), then re-run to measure improvement. For the full evaluation workflow, see [Use benchmarks in a Genie space](https://docs.databricks.com/aws/en/genie/benchmarks).
 
 ### User Testing
 
