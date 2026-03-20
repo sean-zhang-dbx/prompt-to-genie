@@ -68,7 +68,9 @@ prompt-to-genie/
 ├── references/
 │   ├── schema.md                      # serialized_space JSON schema, field reference, formatting rules
 │   ├── diagnose_optimize_space.md     # Diagnose & Optimize workflow, error codes, troubleshooting
-│   └── ui_walkthroughs.md             # Step-by-step UI templates for guided changes
+│   ├── ui_walkthroughs.md             # Step-by-step UI templates for guided changes
+│   ├── example_conversation.md        # Full multi-turn example of the creation workflow
+│   └── validation_checklist.md        # Pre-creation validation checklist
 ├── scripts/
 │   ├── discover_resources.py          # List warehouses + audit table metadata quality
 │   ├── validate_config.py             # Validate serialized_space JSON before API calls
@@ -81,7 +83,7 @@ prompt-to-genie/
 
 A conversational skill with two workflows:
 
-**Create a New Space** (7 steps): Gather requirements > Identify and profile data sources > Define sample questions > Configure instructions > Generate configuration > Create the space > Test and iterate. See `SKILL.md` for the full workflow.
+**Create a New Space** (7 steps): Gather requirements > Identify and profile data sources > Define sample questions > Configure instructions (including benchmarks) > Generate configuration > Create the space > Test and iterate. See `SKILL.md` for the full workflow.
 
 **Diagnose and Optimize an Existing Space** (6 steps): Retrieve configuration > Audit against best practices > Diagnose issues > Recommend optimizations > Apply updates > Benchmark and verify. See `references/diagnose_optimize_space.md`.
 
@@ -89,14 +91,13 @@ The skill is organized as:
 - **`SKILL.md`** — The Create a New Space workflow. This is what the Assistant loads and follows step by step.
 - **`references/`** — Reference material the Assistant consults as needed:
   - `schema.md` — `serialized_space` JSON schema, field reference, formatting rules, ID generation
-  - `diagnose_optimize_space.md` — Diagnose and Optimize workflow, error codes, troubleshooting patterns
+  - `diagnose_optimize_space.md` — Diagnose and Optimize workflow, error codes, troubleshooting, and additional resources
   - `ui_walkthroughs.md` — Step-by-step templates for making changes in the Genie space UI
+  - `example_conversation.md` — Full multi-turn example demonstrating the conversational creation pattern
+  - `validation_checklist.md` — Pre-creation checklist covering config, permissions, benchmarks, and column exclusions
 - **`scripts/`** — Python templates the Assistant adapts and runs in notebook cells
-- **`examples/`** — Real conversation transcripts and generated notebooks showing the skill in action
 
 ## Usage Examples
-
-For full end-to-end walkthroughs, see the [`examples/`](examples/) directory.
 
 ### Create a New Genie Space
 
