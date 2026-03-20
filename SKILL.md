@@ -72,7 +72,7 @@ Determine which Unity Catalog tables to include. **Keep the dataset focused** �
 - **Maximum 25 tables per space.** If you need more, prejoin related tables into views or metric views before adding them to the space.
 - **Prejoin and de-normalize when possible.** Use views or metric views to resolve column ambiguities and simplify complex relationships. Metric views are particularly effective because they pre-define metrics, dimensions, and aggregations.
 - **Build on well-annotated tables.** Genie uses Unity Catalog column names and descriptions to generate responses. Clear column names and descriptions help produce high-quality answers. Advise users to add or review column descriptions in Unity Catalog before creating the space.
-- **Hide irrelevant columns — but ask first.** After profiling tables, suggest columns that may be irrelevant (e.g., ETL timestamps, internal IDs) and **ask the user to confirm** before setting `exclude: true`. Never hide columns without explicit user approval.
+- **Never hide columns without explicit approval.** After profiling tables, you may suggest columns that look irrelevant (e.g., ETL timestamps, internal IDs), but you **must ask the user and get confirmation** before excluding anything. Do not set `exclude: true` on any column that the user has not explicitly approved for hiding.
 
 ### Table Format
 
@@ -404,6 +404,7 @@ If the user doesn't know their warehouse ID or workspace URL, help them discover
 > - *Example SQL queries: [list question + brief description of each]*
 > - *Text instructions: [summarize key rules]*
 > - *Join specs: [list table relationships]*
+> - *Hidden columns: [list columns to exclude, or "none"]*
 > - *Benchmarks: [count] questions covering [list which example SQL / sample questions they test]*"
 >
 > **Only proceed to generate the configuration after the user confirms.** This is your last checkpoint before building — any corrections here are easy, but corrections after creation require the diagnose and optimize workflow.
@@ -422,6 +423,7 @@ Build the `serialized_space` JSON using the schema and examples in [references/s
 - `join_specs.sql` requires **two elements**: (1) backtick-quoted join condition, (2) `"--rt=FROM_RELATIONSHIP_TYPE_...--"` annotation
 - `text_instructions.content` elements must end with `\n` — the API concatenates without separators
 - `benchmarks` section is **required** — include at least one benchmark per example SQL query with 2-3 alternate phrasings each. Benchmark IDs must be unique across both `sample_questions` and `benchmarks.questions`.
+- **NEVER set `exclude: true`** on any column unless the user explicitly approved it in the plan review. If no columns were approved for exclusion, do not exclude any. This is a hard rule — do not infer which columns to hide based on column names like `_id`, `etl_`, etc.
 - Include only what's needed for other sections — omit sections that don't apply (e.g., skip `metric_views` if none)
 
 
