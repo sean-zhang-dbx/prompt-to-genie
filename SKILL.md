@@ -344,6 +344,8 @@ Every new space **must** include benchmarks in its initial configuration. Benchm
 
 **Benchmark questions must be unambiguous.** If a question could reasonably be answered by multiple different SQL queries, make it more specific. Include the exact metric, grouping, count, and scope so the ground truth SQL is the only reasonable interpretation. Bad: "Show me the most lethal cancers" (how many? what metric?). Good: "What are the top 5 cancer types ranked by average mortality rate?"
 
+**Ground truth SQL must be minimal.** Only include columns and clauses directly implied by the question. Do not add helpful extras — if the question asks about mortality rate, do not include survival rate or death counts in the SELECT. Extra columns cause benchmark failures because Genie may return different "helpful" columns or none at all.
+
 **Target:** 10-20 total benchmark questions.
 
 **At creation time:** validate all benchmark SQL by executing it (same as example SQL). Only verify the SQL runs without errors — do not run benchmark accuracy evaluations during creation. Include benchmarks in the `serialized_space` JSON under the `benchmarks` key — see [references/schema.md](references/schema.md) for the schema.
