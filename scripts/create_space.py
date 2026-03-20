@@ -45,7 +45,7 @@ tables = sorted([
             },
             {
                 "column_name": "etl_timestamp",
-                "exclude": True,  # Hide irrelevant columns from Genie
+                "exclude": True,  # Only set after user confirms this column should be hidden
             },
         ], key=lambda x: x["column_name"]),
     },

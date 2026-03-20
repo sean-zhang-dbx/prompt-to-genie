@@ -72,7 +72,7 @@ Determine which Unity Catalog tables to include. **Keep the dataset focused** �
 - **Maximum 25 tables per space.** If you need more, prejoin related tables into views or metric views before adding them to the space.
 - **Prejoin and de-normalize when possible.** Use views or metric views to resolve column ambiguities and simplify complex relationships. Metric views are particularly effective because they pre-define metrics, dimensions, and aggregations.
 - **Build on well-annotated tables.** Genie uses Unity Catalog column names and descriptions to generate responses. Clear column names and descriptions help produce high-quality answers. Advise users to add or review column descriptions in Unity Catalog before creating the space.
-- **Hide irrelevant columns.** After adding tables, recommend that users hide any columns that might be confusing or unimportant for the space's purpose. This reduces ambiguity for Genie.
+- **Hide irrelevant columns — but ask first.** After profiling tables, suggest columns that may be irrelevant (e.g., ETL timestamps, internal IDs) and **ask the user to confirm** before setting `exclude: true`. Never hide columns without explicit user approval.
 
 ### Table Format
 
@@ -107,7 +107,7 @@ If column descriptions are missing or unclear, suggest the user add them in Unit
 
 **Reference script:** See `scripts/discover_resources.py` (Part 2) for a comprehensive audit that checks table comments, column descriptions, column counts, foreign keys, and generates a Genie-readiness quality score with specific recommendations.
 
-**Column-level configuration via API:** Set per-column metadata directly in the `serialized_space` using `column_configs` on each table. **Important: prompt matching (format assistance + entity matching) is only auto-enabled when tables are added via the UI. When creating spaces via the API, prompt matching is OFF by default.** You must explicitly include `column_configs` entries with `enable_format_assistance: true` and `enable_entity_matching: true` for every string/category column that users will filter on. Columns not listed in `column_configs` will not have prompt matching enabled. Entity matching requires format assistance — turning off format assistance automatically disables entity matching. Hide irrelevant columns with `exclude: true`. See `references/schema.md` → "Prompt matching overview" for limits and "Field Reference → data_sources" for all fields.
+**Column-level configuration via API:** Set per-column metadata directly in the `serialized_space` using `column_configs` on each table. **Important: prompt matching (format assistance + entity matching) is only auto-enabled when tables are added via the UI. When creating spaces via the API, prompt matching is OFF by default.** You must explicitly include `column_configs` entries with `enable_format_assistance: true` and `enable_entity_matching: true` for every string/category column that users will filter on. Columns not listed in `column_configs` will not have prompt matching enabled. Entity matching requires format assistance — turning off format assistance automatically disables entity matching. To hide columns, set `exclude: true` — but **only after confirming with the user** which columns to exclude. See `references/schema.md` → "Prompt matching overview" for limits and "Field Reference → data_sources" for all fields.
 
 ### Define Table Relationships
 
