@@ -415,7 +415,7 @@ Build the `serialized_space` JSON using the schema and examples in [references/s
 **Critical formatting rules** (these cause API rejection if wrong):
 - `version`: **Required**. Use `2` for new spaces
 - All IDs: exactly 32 lowercase hex characters — generate with `secrets.token_hex(16)`
-- All arrays with `id` fields must be **sorted alphabetically by `id`**. Tables sorted by `identifier`.
+- All arrays with `id` fields must be **sorted alphabetically by `id`**. Tables sorted by `identifier`. `column_configs` sorted by `column_name`.
 - `sql` fields are **string arrays** — each SQL clause is a separate element with `\n`: `["SELECT\n", "  col\n", "FROM table"]`
 - `sql_snippets` require **table-qualified column references** (`table_name.column`) — bare column names are rejected by the UI
 - Filters must **NOT** include the `WHERE` keyword — only the boolean condition
