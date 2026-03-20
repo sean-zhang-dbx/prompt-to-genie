@@ -81,6 +81,14 @@ if text_instr:
     for line in text_instr[0].get("content", []):
         print(f"  - {line}")
 
+benchmarks = current_config.get("benchmarks", {}).get("questions", [])
+print(f"\nBenchmarks: {len(benchmarks)}")
+if benchmarks:
+    for bq in benchmarks:
+        print(f"  - {bq.get('question', ['?'])[0]}")
+else:
+    print("  WARNING: No benchmarks found. Add 10-20 with SQL ground truth.")
+
 # Instruction count audit
 total_instructions = len(example_sqls) + len(sql_functions) + (1 if text_instr else 0)
 print(f"\n{'='*60}")
@@ -112,12 +120,33 @@ if total_instructions > 80:
 #     existing_sqls, key=lambda x: x["id"]
 # )
 #
-# # Sort all ID-based collections (required by API)
+# # Sort ALL collections before updating (required by API)
+# # ID-based collections: sorted by "id"
+# for key in ["example_question_sqls", "join_specs", "sql_functions", "text_instructions"]:
+#     if key in current_config.get("instructions", {}):
+#         current_config["instructions"][key] = sorted(
+#             current_config["instructions"][key], key=lambda x: x["id"]
+#         )
+# for snippet_type in ["measures", "filters", "expressions"]:
+#     snippets = current_config.get("instructions", {}).get("sql_snippets", {})
+#     if snippet_type in snippets:
+#         snippets[snippet_type] = sorted(snippets[snippet_type], key=lambda x: x["id"])
 # if "sample_questions" in current_config.get("config", {}):
 #     current_config["config"]["sample_questions"] = sorted(
-#         current_config["config"]["sample_questions"],
-#         key=lambda x: x["id"]
+#         current_config["config"]["sample_questions"], key=lambda x: x["id"]
 #     )
+# if "questions" in current_config.get("benchmarks", {}):
+#     current_config["benchmarks"]["questions"] = sorted(
+#         current_config["benchmarks"]["questions"], key=lambda x: x["id"]
+#     )
+# # Identifier-based: tables by "identifier", column_configs by "column_name"
+# if "tables" in current_config.get("data_sources", {}):
+#     current_config["data_sources"]["tables"] = sorted(
+#         current_config["data_sources"]["tables"], key=lambda x: x.get("identifier", "")
+#     )
+#     for tbl in current_config["data_sources"]["tables"]:
+#         if "column_configs" in tbl:
+#             tbl["column_configs"] = sorted(tbl["column_configs"], key=lambda x: x.get("column_name", ""))
 #
 # # Apply the update
 # update_response = w.api_client.do(

@@ -300,8 +300,17 @@ response = w.api_client.do(
     },
 )
 
-space_id = response.get("space_id")
-host = w.config.host.rstrip("/")
-print(f"Successfully created Genie space!")
-print(f"  Space ID: {space_id}")
-print(f"  URL: {host}/genie/rooms/{space_id}")
+if "error_code" in response or "message" in response:
+    print(f"ERROR creating Genie space:")
+    print(f"  Code: {response.get('error_code', 'unknown')}")
+    print(f"  Message: {response.get('message', 'No message provided')}")
+    print(f"\nCommon causes:")
+    print(f"  - 400: Invalid config (check sorting, ID format, required fields)")
+    print(f"  - 403: Missing permissions on warehouse or tables")
+    print(f"  - 404: Invalid warehouse_id or parent_path")
+else:
+    space_id = response.get("space_id")
+    host = w.config.host.rstrip("/")
+    print(f"Successfully created Genie space!")
+    print(f"  Space ID: {space_id}")
+    print(f"  URL: {host}/genie/rooms/{space_id}")
