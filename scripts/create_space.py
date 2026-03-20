@@ -100,10 +100,34 @@ example_sqls = [
     },
 ]
 
-# Benchmark questions (REQUIRED) — alternate phrasings of sample/example SQL questions
-# These test whether Genie generalizes beyond the exact example SQL wording.
-# Derive 2-3 phrasings per example SQL query; use the same ground truth SQL.
-benchmark_questions = [
+# Benchmark questions (REQUIRED) — organized in two tiers.
+#
+# Tier 1 (train-aligned): Original example SQL question + alternate phrasings.
+#   Ground truth = EXACT SAME SQL from example_sqls above. Do not rewrite it.
+#   Expected accuracy: high (80-100%). Failures indicate a space config issue.
+#
+# Tier 2 (test / generalization): New questions without example SQL.
+#   Ground truth = independently written SQL following same conventions.
+#   Expected accuracy: naturally lower. Low scores show where to add example SQL.
+
+# --- Tier 1: train-aligned (reuse exact example SQL as ground truth) ---
+tier1_benchmarks = [
+    {
+        "question": ["What are total sales by product category?"],  # Original question (smoke test)
+        "answer_sql": example_sqls[0]["sql"],  # Exact same SQL
+    },
+    {
+        "question": ["Break down revenue by product type"],  # Alternate phrasing
+        "answer_sql": example_sqls[0]["sql"],  # Exact same SQL
+    },
+    {
+        "question": ["Show me sales broken out by product category"],  # Alternate phrasing
+        "answer_sql": example_sqls[0]["sql"],  # Exact same SQL
+    },
+]
+
+# --- Tier 2: test / generalization (independently written SQL) ---
+tier2_benchmarks = [
     {
         "question": ["How much did we sell last month?"],
         "answer_sql": [
@@ -113,31 +137,9 @@ benchmark_questions = [
             "AND order_date < DATE_TRUNC('month', CURRENT_DATE)",
         ],
     },
-    {
-        "question": ["Break down revenue by product type"],
-        "answer_sql": [
-            "SELECT\n",
-            "  p.category,\n",
-            "  SUM(o.quantity * o.unit_price) as total_sales\n",
-            "FROM catalog.schema.orders o\n",
-            "JOIN catalog.schema.products p ON o.product_id = p.product_id\n",
-            "GROUP BY p.category\n",
-            "ORDER BY total_sales DESC",
-        ],
-    },
-    {
-        "question": ["Show me sales broken out by product category"],
-        "answer_sql": [
-            "SELECT\n",
-            "  p.category,\n",
-            "  SUM(o.quantity * o.unit_price) as total_sales\n",
-            "FROM catalog.schema.orders o\n",
-            "JOIN catalog.schema.products p ON o.product_id = p.product_id\n",
-            "GROUP BY p.category\n",
-            "ORDER BY total_sales DESC",
-        ],
-    },
 ]
+
+benchmark_questions = tier1_benchmarks + tier2_benchmarks
 
 # SQL expressions — measures, filters, dimensions
 # IMPORTANT: sql is a string[] (array), same format as example_question_sqls.

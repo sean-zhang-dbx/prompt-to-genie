@@ -63,7 +63,7 @@ This example demonstrates the multi-turn, pause-heavy pattern. Notice the agent 
 
 **Join specs:** orders.product_id = products.product_id (MANY_TO_ONE)
 **Hidden columns:** etl_timestamp, internal_batch_id (per your request)
-**Benchmarks:** 8 questions — alternate phrasings of the 2 example SQL queries (3 each) plus 2 for the sample questions, all with SQL ground truth
+**Benchmarks:** 10 questions — Tier 1: original + 2 alternate phrasings per example SQL query (6 total, reusing exact example SQL as ground truth), Tier 2: 4 new questions for sample questions without example SQL
 
 Does this look right, or would you like to change anything?"
 

@@ -332,15 +332,19 @@ Keep this budget in mind when adding instructions — prioritize quality over qu
 
 ### 4g: Plan Benchmarks (Required)
 
-Every new space **must** include benchmarks in its initial configuration. Benchmarks are the test suite for your space — they verify Genie can generalize beyond the exact example SQL questions you provided.
+Every new space **must** include benchmarks in its initial configuration. Benchmarks are organized into two tiers:
 
-**Derivation strategy:**
-- For each **example SQL query** from Step 4b, create **2-3 alternate phrasings** of the same question. Use the same ground truth SQL for all phrasings.
-- For **sample questions** (Step 3) that don't have a corresponding example SQL, write a ground truth SQL query.
-- Target **10-20 total benchmark questions** covering the space's core use cases.
-- Benchmark questions should sound like real users — vary vocabulary, sentence structure, and level of specificity.
+**Tier 1 — Train-aligned** (high expected accuracy):
+- For each **example SQL query** from Step 4b, include the **original question** as a smoke test plus **2-3 alternate phrasings**.
+- Ground truth SQL = the **exact same SQL** from the corresponding `example_question_sqls` entry. Do not rewrite or adapt it — reuse it verbatim so the ground truth matches the pattern Genie learned.
 
-**Important:** Benchmark SQL must be validated the same way as example SQL (execute before creation). Include benchmarks in the `serialized_space` JSON under the `benchmarks` key — see [references/schema.md](references/schema.md) for the schema.
+**Tier 2 — Test / generalization** (lower expected accuracy):
+- New questions covering **sample questions** or other use cases that have no corresponding example SQL.
+- Ground truth SQL = independently written, but following the same conventions as the example SQL (same rounding, aliases, join patterns).
+
+**Target:** 10-20 total benchmark questions. Benchmark questions should sound like real users — vary vocabulary, sentence structure, and specificity.
+
+**At creation time:** validate all benchmark SQL by executing it (same as example SQL). Only verify the SQL runs without errors — do not run benchmark accuracy evaluations during creation. Include benchmarks in the `serialized_space` JSON under the `benchmarks` key — see [references/schema.md](references/schema.md) for the schema.
 
 ## Step 4.5: Discover Available Resources
 
@@ -364,7 +368,7 @@ If the user doesn't know their warehouse ID or workspace URL, help them discover
 > - *Text instructions: [summarize key rules]*
 > - *Join specs: [list table relationships]*
 > - *Hidden columns: [list columns to exclude, or "none"]*
-> - *Benchmarks: [count] questions covering [list which example SQL / sample questions they test]*"
+> - *Benchmarks: [count] Tier 1 (original + rephrased example SQL questions, reusing exact ground truth SQL) + [count] Tier 2 (new questions testing generalization)*"
 >
 > **Only proceed to generate the configuration after the user confirms.** This is your last checkpoint before building — any corrections here are easy, but corrections after creation require the diagnose and optimize workflow.
 
@@ -493,11 +497,11 @@ After creating the space, **the curator should be the first user**. Testing and 
 
 ### Benchmarks
 
-Your space ships with benchmarks from Step 4g. After creation, run them and iterate:
+Your space ships with two tiers of benchmarks from Step 4g. After creation, run them from the **Benchmarks** tab:
 
-- Run all benchmarks or a selected subset from the **Benchmarks** tab. Each question runs as a **new conversation** (no prior context).
-- Review results in the **Evaluations** tab — each run is timestamped with accuracy and status.
-- To add more benchmarks post-creation, click **Add as benchmark** on any chat response, or use the **Benchmarks** tab directly.
+**Interpreting results by tier:**
+- **Tier 1 (train-aligned):** Expected accuracy is **high** (80-100%). These reuse exact example SQL as ground truth, so failures indicate a real problem — ambiguous columns, conflicting instructions, or missing metadata. Fix the root cause in the space.
+- **Tier 2 (test):** Expected accuracy is **naturally lower**. These test generalization with independently written SQL. Low scores here are not a failure — they show where Genie needs more guidance. Add example SQL queries for low-scoring question patterns.
 
 | Rating | Condition |
 |--------|-----------|
@@ -505,7 +509,7 @@ Your space ships with benchmarks from Step 4g. After creation, run them and iter
 | **Bad** | Empty result set, error, extra columns, or different single-cell result |
 | **Manual review** | Genie couldn't assess, or no SQL answer was provided |
 
-**Iterate:** Review low-scoring questions, fix the root cause (add example SQL, refine instructions, improve metadata), then re-run to measure improvement. For the full evaluation workflow, see [Use benchmarks in a Genie space](https://docs.databricks.com/aws/en/genie/benchmarks).
+For the full evaluation workflow, see [Use benchmarks in a Genie space](https://docs.databricks.com/aws/en/genie/benchmarks).
 
 ### User Testing
 
