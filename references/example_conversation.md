@@ -30,7 +30,7 @@ This example demonstrates the multi-turn, pause-heavy pattern. Notice the agent 
 2. How is 'conversion rate' defined? (e.g., closed-won / total opportunities?)
 3. Does your team use a fiscal calendar? If so, when does the fiscal year start?
 4. Any abbreviations or terminology I should know? (e.g., does 'AMER' mean 'Americas'?)
-5. Should I exclude any columns like `etl_timestamp` or internal IDs?"
+5. Are there any columns I should hide? I won't exclude anything unless you tell me to — but columns like `etl_timestamp` or internal IDs are common candidates."
 
 *(Agent waits for user response)*
 
@@ -62,7 +62,8 @@ This example demonstrates the multi-turn, pause-heavy pattern. Notice the agent 
 - Region codes: AMER = Americas, EMEA = Europe/Middle East/Africa, APJ = Asia Pacific/Japan, LATAM = Latin America
 
 **Join specs:** orders.product_id = products.product_id (MANY_TO_ONE)
-**Hidden columns:** etl_timestamp, internal_batch_id
+**Hidden columns:** etl_timestamp, internal_batch_id (per your request)
+**Benchmarks:** 8 questions — alternate phrasings of the 2 example SQL queries (3 each) plus 2 for the sample questions, all with SQL ground truth
 
 Does this look right, or would you like to change anything?"
 
@@ -70,4 +71,4 @@ Does this look right, or would you like to change anything?"
 
 **User:** "Looks good! Use warehouse `abc123`, put it in `/Users/sean/genie_spaces`"
 
-**Agent:** *(now generates the configuration, validates, tests SQL, and creates the space)*
+**Agent:** *(generates the configuration with benchmarks, validates via `validate_config.py`, executes all example SQL and benchmark SQL queries to verify they return valid results, then creates the space via the API)*
