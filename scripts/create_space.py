@@ -45,7 +45,7 @@ tables = sorted([
             },
             {
                 "column_name": "etl_timestamp",
-                "exclude": True,  # Hide irrelevant columns from Genie
+                "exclude": True,  # Only set after user confirms this column should be hidden
             },
         ], key=lambda x: x["column_name"]),
     },
@@ -99,6 +99,54 @@ example_sqls = [
         "usage_guidance": ["Use this pattern for any breakdown of sales metrics by product attribute"],
     },
 ]
+
+# Benchmark questions (REQUIRED) — organized into Core and Stretch.
+#
+# IMPORTANT: Questions must be UNAMBIGUOUS. If a question could be answered
+# by multiple different SQL queries, make it more specific. Include the exact
+# metric, grouping, count, and scope so the ground truth SQL is the only
+# reasonable interpretation.
+#   Bad:  "Show me top products" (top by what? how many?)
+#   Good: "What are the top 10 products ranked by total revenue?"
+#
+# Core: Original example SQL question + alternate phrasings.
+#   Ground truth = EXACT SAME SQL from example_sqls above. Do not rewrite it.
+#   Expected accuracy: high (80-100%). Failures indicate a space config issue.
+#
+# Stretch: New questions without example SQL.
+#   Ground truth = independently written SQL following same conventions.
+#   Expected accuracy: naturally lower. Low scores show where to add example SQL.
+
+# --- Core benchmarks (reuse exact example SQL as ground truth) ---
+core_benchmarks = [
+    {
+        "question": ["What are total sales by product category?"],  # Original question (smoke test)
+        "answer_sql": example_sqls[0]["sql"],  # Exact same SQL
+    },
+    {
+        "question": ["Break down total revenue by product category"],  # Alternate phrasing
+        "answer_sql": example_sqls[0]["sql"],  # Exact same SQL
+    },
+    {
+        "question": ["Show total sales grouped by product category, highest first"],  # Alternate phrasing
+        "answer_sql": example_sqls[0]["sql"],  # Exact same SQL
+    },
+]
+
+# --- Stretch benchmarks (independently written SQL) ---
+stretch_benchmarks = [
+    {
+        "question": ["What was total revenue last month?"],
+        "answer_sql": [
+            "SELECT SUM(quantity * unit_price) as total_revenue\n",
+            "FROM catalog.schema.orders\n",
+            "WHERE order_date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL 1 MONTH)\n",
+            "AND order_date < DATE_TRUNC('month', CURRENT_DATE)",
+        ],
+    },
+]
+
+benchmark_questions = core_benchmarks + stretch_benchmarks
 
 # SQL expressions — measures, filters, dimensions
 # IMPORTANT: sql is a string[] (array), same format as example_question_sqls.
@@ -232,6 +280,19 @@ config = {
             key=lambda x: x["id"],
         ),
     },
+    "benchmarks": {
+        "questions": sorted(
+            [
+                {
+                    "id": secrets.token_hex(16),
+                    "question": [bq["question"][0]],
+                    "answer": [{"format": "SQL", "content": bq["answer_sql"]}],
+                }
+                for bq in benchmark_questions
+            ],
+            key=lambda x: x["id"],
+        ),
+    },
 }
 
 # --- CREATE THE SPACE ---
@@ -248,8 +309,17 @@ response = w.api_client.do(
     },
 )
 
-space_id = response.get("space_id")
-host = w.config.host.rstrip("/")
-print(f"Successfully created Genie space!")
-print(f"  Space ID: {space_id}")
-print(f"  URL: {host}/genie/rooms/{space_id}")
+if "error_code" in response or "message" in response:
+    print(f"ERROR creating Genie space:")
+    print(f"  Code: {response.get('error_code', 'unknown')}")
+    print(f"  Message: {response.get('message', 'No message provided')}")
+    print(f"\nCommon causes:")
+    print(f"  - 400: Invalid config (check sorting, ID format, required fields)")
+    print(f"  - 403: Missing permissions on warehouse or tables")
+    print(f"  - 404: Invalid warehouse_id or parent_path")
+else:
+    space_id = response.get("space_id")
+    host = w.config.host.rstrip("/")
+    print(f"Successfully created Genie space!")
+    print(f"  Space ID: {space_id}")
+    print(f"  URL: {host}/genie/rooms/{space_id}")

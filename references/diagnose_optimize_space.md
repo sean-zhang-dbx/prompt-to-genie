@@ -283,3 +283,16 @@ If users report problems with their Genie space after creation, use this referen
 - Streamline column descriptions — don't duplicate info already conveyed by column names
 - Prune overlapping or redundant example SQL queries
 - Simplify text instructions — avoid unnecessary words
+
+---
+
+## Additional Resources
+
+- [Set Up and Manage a Genie Space](https://docs.databricks.com/aws/en/genie/set-up)
+- [Curate an Effective Genie Space — Best Practices](https://docs.databricks.com/aws/en/genie/best-practices)
+- [Use Parameters in SQL Queries](https://docs.databricks.com/aws/en/genie/query-params)
+- [Use Trusted Assets in Genie Spaces](https://docs.databricks.com/aws/en/genie/trusted-assets)
+- [Use Benchmarks in a Genie Space](https://docs.databricks.com/aws/en/genie/benchmarks)
+- [Troubleshoot Genie Spaces](https://docs.databricks.com/aws/en/genie/troubleshooting)
+- [Genie API Reference](https://docs.databricks.com/api/workspace/genie)
+- [Create Genie Space API](https://docs.databricks.com/api/workspace/genie/createspace)

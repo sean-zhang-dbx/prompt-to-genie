@@ -2,6 +2,13 @@
 
 Complete structure for the `serialized_space` configuration. Include only sections relevant to the user's space.
 
+## Contents
+- Example Structure (full JSON)
+- Field Reference: config, data_sources, instructions, benchmarks
+- Prompt Matching Overview (format assistance, entity matching, limits)
+- Important Notes (formatting rules, sorting, common mistakes)
+- ID Generation
+
 ```json
 {
   "version": 2,
@@ -268,8 +275,8 @@ All three snippet types (`filters`, `expressions`, `measures`) support these opt
   - Correct: `["orders.amount > 1000"]`
   - Wrong: `["WHERE orders.amount > 1000"]`
 - **ID Format**: All IDs must be exactly 32 lowercase hexadecimal characters (no hyphens)
-- **Sorting**: All arrays of objects with `id` fields must be sorted alphabetically by `id`. Tables must be sorted by `identifier`.
-- **Include only what's needed**: Omit sections that don't apply (e.g., skip `metric_views` if none, skip `benchmarks` if not creating them yet)
+- **Sorting**: All arrays of objects with `id` fields must be sorted alphabetically by `id`. Tables must be sorted by `identifier`. `column_configs` must be sorted by `column_name`.
+- **Include only what's needed**: Omit sections that don't apply (e.g., skip `metric_views` if none). Note: `benchmarks` is required for new spaces.
 - **Join spec format**: The `sql` array requires exactly **two elements**: (1) the join condition using backtick-quoted references, and (2) a `--rt=FROM_RELATIONSHIP_TYPE_...--` annotation. Without the relationship type annotation, the API rejects the request. For multi-column joins, create separate join specs.
 - **`text_instructions` content formatting**: The API concatenates `content` array elements without any separator. Each element must end with `\n` or a trailing space to prevent text from being jammed together (e.g., `"Rule one.\n"` not `"Rule one."`)
 - **column_configs**: Usually set post-creation via the manage flow or UI. For initial creation, column descriptions and synonyms can be added via `column_configs` in the API, or later through the Genie space UI. Note: `enable_entity_matching` requires `enable_format_assistance` to be `true` — the API will reject configurations where entity matching is enabled but format assistance is not.

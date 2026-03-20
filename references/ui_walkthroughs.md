@@ -45,9 +45,12 @@ Hiding columns reduces ambiguity and helps Genie focus on relevant data. Use thi
 
 1. Open your Genie space → click the **Benchmarks** tab
 2. Click **Add benchmark** → enter the question text
-3. Add a SQL ground truth answer
-4. Optionally add 2-4 alternate phrasings with the same SQL answer
-5. **Verify:** Run the benchmark and check the rating
+3. Add a SQL ground truth answer — type your own or click **Generate SQL** to have Genie write one (review it for accuracy)
+4. Optionally click **Run** to preview the query results before saving
+5. Add 2-4 alternate phrasings with the same SQL answer
+6. **Verify:** Run the benchmark and check the rating
+
+> **Tip:** You can rerun a subset of questions from a previous evaluation — select the failing questions and click **Run selected** to test targeted fixes.
 
 ## Refresh Prompt Matching Data
 
