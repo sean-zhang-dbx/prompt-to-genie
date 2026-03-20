@@ -2,6 +2,13 @@
 
 Complete structure for the `serialized_space` configuration. Include only sections relevant to the user's space.
 
+## Contents
+- Example Structure (full JSON)
+- Field Reference: config, data_sources, instructions, benchmarks
+- Prompt Matching Overview (format assistance, entity matching, limits)
+- Important Notes (formatting rules, sorting, common mistakes)
+- ID Generation
+
 ```json
 {
   "version": 2,

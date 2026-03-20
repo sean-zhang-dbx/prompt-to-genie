@@ -15,16 +15,28 @@ Guide users through creating new Databricks AI/BI Genie spaces or managing exist
 
 The most common mistake is rushing to build the space after getting table names. Instead, gather business context thoroughly — it is far easier to get the initial room right than to debug it afterward.
 
+## Contents
+
+- **Create a New Space** (Steps 1-7) — below
+- **Diagnose and Optimize an Existing Space** — [references/diagnose_optimize_space.md](references/diagnose_optimize_space.md)
+- **JSON Schema Reference** — [references/schema.md](references/schema.md)
+- **UI Walkthroughs** — [references/ui_walkthroughs.md](references/ui_walkthroughs.md)
+- **Validation Checklist** — [references/validation_checklist.md](references/validation_checklist.md)
+- **Example Conversation** — [references/example_conversation.md](references/example_conversation.md)
+
 ## Workflow Overview
 
 ### Create a New Space
-1. **Gather Requirements** - Define purpose, audience, and scope (start small) — **STOP: wait for user**
-2. **Identify & Profile Data Sources** - Select tables, inspect columns/values — **STOP: ask about business logic**
-3. **Define Sample Questions** - Create starter questions for business users
-4. **Configure Instructions** - Prioritize SQL expressions > example SQL > text instructions — **STOP: present plan for user review**
-5. **Generate Configuration** - Build the serialized_space JSON (only after user approves)
-6. **Create the Space** - Call the Genie API to create the space
-7. **Test and Iterate** - Self-test, benchmark, gather feedback, and refine
+
+Copy this checklist and track progress:
+
+- [ ] Step 1: Requirements gathered — **STOP: wait for user**
+- [ ] Step 2: Tables profiled — **STOP: ask about business logic**
+- [ ] Step 3: Sample questions defined
+- [ ] Step 4: Instructions configured (4a-4g) — **STOP: present plan for user review**
+- [ ] Step 5: Config generated and validated
+- [ ] Step 6: Space created
+- [ ] Step 7: Benchmarks run, feedback gathered
 
 ### Diagnose and Optimize an Existing Space
 See [references/diagnose_optimize_space.md](references/diagnose_optimize_space.md) for the full workflow: retrieve config, audit, diagnose issues, recommend optimizations, apply updates, and benchmark.
@@ -254,28 +266,7 @@ Use complete example SQL queries for hard-to-interpret, multi-part, or complex q
 
 #### Parameterized Queries
 
-Add parameters to example SQL using the `:parameter_name` syntax. Parameterized queries become **trusted assets** — when Genie uses them, the response is labeled **Trusted**, giving users extra confidence in accuracy. Users can edit parameter values and rerun the query.
-
-**Example:**
-```sql
--- Return current pipeline by region for a given forecast category
-SELECT
-  a.region__c AS `Region`,
-  SUM(o.amount) AS `Open Pipeline`
-FROM sales.crm.opportunity o
-JOIN sales.crm.accounts a ON o.accountid = a.id
-WHERE
-  o.forecastcategory = :forecast_category AND
-  o.stagename NOT ILIKE '%closed%'
-GROUP BY ALL;
-```
-
-
-**Parameter types:** String (default), Date, Date and Time, Numeric (Decimal or Integer).
-
-**When to use parameterized vs. static queries:**
-- Use **parameterized** queries for recurring questions where users specify different filter values (e.g., by region, by quarter, by product). These produce **trusted** responses.
-- Use **static** queries for questions that don't vary, or to teach Genie general query patterns it can learn from.
+Add parameters using `:parameter_name` syntax. Parameterized queries become **trusted assets** (labeled "Trusted" in responses). Use for recurring questions where users specify different filter values (e.g., by region, by quarter). Parameter types: String (default), Date, Date and Time, Numeric. Use **static** queries for questions that don't vary or to teach Genie general patterns.
 
 
 ### 4c: Text Instructions (For General Guidance)
@@ -321,46 +312,14 @@ You can customize how Genie generates natural language summaries alongside query
 
 ### 4f: Trusted Assets — SQL Functions (Advanced)
 
-For questions involving complex logic that can't be captured with a static or parameterized query, you can register **Unity Catalog SQL functions (UDFs)** as trusted assets. Genie calls these functions with user-supplied parameters, and responses are labeled **Trusted**.
-
-**When to use SQL functions:**
-- Logic is too complex for a single SQL query
-- You want to encapsulate business logic that shouldn't be modified
-- The same function can serve multiple Genie spaces
-
-**Example — creating a UDF for pipeline analysis:**
-```sql
-CREATE OR REPLACE FUNCTION catalog.schema.open_opps_in_region (
-  regions ARRAY<STRING>
-  COMMENT 'List of regions. Example: ["APAC", "EMEA"]' DEFAULT NULL
-) RETURNS TABLE
-COMMENT 'Returns all open pipeline opportunities, optionally filtered by region.
-Example questions: "What is the pipeline for APAC?", "Open opportunities in EMEA"'
-RETURN
-  SELECT
-    o.id AS `OppId`,
-    a.region__c AS `Region`,
-    o.name AS `Opportunity Name`,
-    o.amount AS `Opp Amount`
-  FROM catalog.schema.opportunity o
-  JOIN catalog.schema.accounts a ON o.accountid = a.id
-  WHERE o.forecastcategory = 'Pipeline'
-    AND o.stagename NOT LIKE '%closed%'
-    AND (
-      isnull(open_opps_in_region.regions)
-      OR array_contains(open_opps_in_region.regions, region__c)
-    );
-```
-
+Register **Unity Catalog SQL functions (UDFs)** as trusted assets for logic too complex for a single query. Genie calls these functions with user-supplied parameters, and responses are labeled **Trusted**. Use when the same function can serve multiple spaces or you want to encapsulate business logic that shouldn't be modified.
 
 **Tips for writing UDFs:**
-- **Include detailed function comments** — they tell Genie when to invoke the function
-- **Include parameter comments with examples** — e.g., `'List of regions. Values: ["AF", "EU", "NA"]'`
-- **Use `DEFAULT NULL` for optional parameters** — and explicitly check for `NULL` in the `WHERE` clause: `WHERE (isnull(min_date) OR created_date >= min_date)`
-- **Specify format in comments** — e.g., `'minimum date in yyyy-mm-dd format'`
+- **Include detailed function and parameter comments** — these tell Genie when to invoke the function and what values to pass (e.g., `COMMENT 'List of regions. Values: ["AF", "EU", "NA"]'`)
+- **Use `DEFAULT NULL` for optional parameters** — check for `NULL` in the `WHERE` clause: `WHERE (isnull(min_date) OR created_date >= min_date)`
 - **Store functions in a dedicated schema** for easier permission management
 
-**Permissions:** Users need `EXECUTE` permission on the function and `CAN USE` on the containing catalog/schema.
+**Permissions:** Users need `EXECUTE` on the function and `CAN USE` on the containing catalog/schema.
 
 ### Instruction Limits
 
@@ -508,32 +467,14 @@ print(f"Space created! Open it here:\n{host}/genie/rooms/{space_id}")
 
 For the full template with column configs and all sections, see `scripts/create_space.py`.
 
-**After creating the space**, always display a clickable link to the user using this format:
-
-```
-https://<workspace-url>/genie/rooms/<space_id>
-```
-
-Get the workspace URL from `w.config.host` (strip trailing slash) and the space ID from the API response. Example:
-`https://adb-984752964297111.11.azuredatabricks.net/genie/rooms/01f0d5be61091b6ea75a6e8438c3bce2`
+**After creating the space**, display a clickable link: `https://{w.config.host}/genie/rooms/{space_id}`
 
 > **Important post-creation step:** Prompt matching (format assistance + entity matching) is **not auto-enabled when creating via the API**. After the space is created, remind the user:
 >
 > *"Your space is live! One important step: prompt matching (which helps Genie match user terms like 'California' to actual values like 'CA') is only auto-enabled when tables are added via the UI. Since we created this space via the API, please open the space, go to Configure > Data, and verify that Format assistance and Entity matching are enabled for your key filter columns (under each column's Advanced settings). The `column_configs` I included cover [list columns], but any other string/category columns may need to be enabled manually."*
 
 
-**Authentication Notes:**
-- All scripts use `WorkspaceClient()` from the Databricks SDK (`databricks-sdk`), which auto-authenticates in notebook context
-- API calls use `w.api_client.do()` for Genie endpoints and typed methods (e.g., `w.warehouses.list()`) where available
-- For scripts outside notebooks, `WorkspaceClient` supports Personal Access Tokens, OAuth, and other authentication methods via environment variables or `~/.databrickscfg`
-
-**Compute and Sharing Notes:**
-- Genie spaces require a **pro or serverless** SQL warehouse (serverless recommended for performance)
-- The creating user's compute credentials are **embedded** into the space and used for all queries by all users
-- End users have their own **data credentials** applied, so they only see data they're authorized to access
-- Users need the **Databricks SQL** workspace entitlement and `SELECT` on included tables to use the space
-- Each workspace supports up to **20 questions/minute** across all Genie spaces (UI), or **5 questions/minute** via API free tier
-- Each space supports up to **10,000 conversations**, each with up to **10,000 messages**
+**Notes:** All scripts use `WorkspaceClient()` which auto-authenticates in notebook context. The creating user's compute credentials are embedded into the space. Rate limits: 20 questions/minute (UI), 5 questions/minute (API free tier).
 
 ## Step 7: Test and Iterate
 
@@ -587,113 +528,12 @@ Once you're satisfied with self-testing, recruit a business user:
 
 ## Complete Example Conversation
 
-This example demonstrates the multi-turn, pause-heavy pattern. Notice the agent does **not** skip ahead — it asks questions, waits, profiles data, asks about business logic, presents a plan, and only builds after approval.
-
-**User:** "I want to create a Genie space for our sales team"
-
-**Agent:** "I can help you create a Genie space for sales analytics! Before I start building anything, I need to understand your requirements. A few questions:
-
-1. **Title:** What would you like to name this space? (e.g., 'Sales Analytics', 'Revenue Dashboard')
-2. **Purpose:** What specific business questions should users be able to ask? (e.g., revenue analysis, product performance, regional comparisons)
-3. **Audience:** Who will use this space? (e.g., sales managers, executives, analysts)
-4. **Key metrics:** What are the most important metrics your team tracks? (e.g., total revenue, win rate, average deal size)
-5. **Common filters:** What do users typically filter by? (e.g., region, product category, time period)
-6. **Data:** Which Unity Catalog tables contain your sales data?"
-
-*(Agent waits for user response)*
-
-**User:** "Call it 'Sales Analytics'. Sales managers will use it. They need to analyze revenue by product and region, and track deal pipeline. Key metrics are total revenue, average order value, and conversion rate. They filter by region and product category. The data is in `analytics.sales.orders` and `analytics.sales.products`."
-
-**Agent:** "Great, let me inspect those tables to understand the data structure..."
-
-*(Agent runs DESCRIBE TABLE and SELECT DISTINCT on key columns, then presents findings)*
-
-**Agent:** "Here's what I found in your data:
-- `analytics.sales.orders`: 12 columns — including `region` (values: AMER, EMEA, APJ, LATAM), `order_date` (range: 2023-01-01 to 2025-12-31), `amount`, `quantity`, `status` (values: open, closed-won, closed-lost)
-- `analytics.sales.products`: 8 columns — including `category` (values: Software, Hardware, Services), `product_name`, `unit_price`
-
-**Before I start building, a few questions about your business logic:**
-1. How is 'revenue' calculated? Is it `amount`, or `quantity * unit_price`, or something else?
-2. How is 'conversion rate' defined? (e.g., closed-won / total opportunities?)
-3. Does your team use a fiscal calendar? If so, when does the fiscal year start?
-4. Any abbreviations or terminology I should know? (e.g., does 'AMER' mean 'Americas'?)
-5. Should I exclude any columns like `etl_timestamp` or internal IDs?"
-
-*(Agent waits for user response)*
-
-**User:** "Revenue = quantity * unit_price. Conversion rate is closed-won divided by all closed deals. Fiscal year starts April 1st. Yes, AMER = Americas, EMEA = Europe/Middle East/Africa, APJ = Asia Pacific/Japan, LATAM = Latin America. Hide `etl_timestamp` and `internal_batch_id`."
-
-**Agent:** "Thanks — that's really helpful. Here's what I plan to include in your **Sales Analytics** space. Please review:
-
-**Title:** Sales Analytics
-**Description:** Analyze sales revenue, pipeline, and performance by product and region
-**Tables:** `analytics.sales.orders`, `analytics.sales.products`
-**Sample questions:**
-- What were total sales last quarter?
-- Show me revenue by product category and region
-- Which products have the highest average order value?
-
-**SQL expressions:**
-- Measure: `total_revenue` = `SUM(quantity * unit_price)`
-- Measure: `avg_order_value` = `AVG(quantity * unit_price)`
-- Filter: `closed won` = `status = 'closed-won'`
-- Dimension: `fiscal_quarter` = `CASE WHEN MONTH(order_date) >= 4 THEN ... END`
-
-**Example SQL queries:**
-- 'What is the conversion rate by region?' — with the closed-won / all-closed logic
-- 'Show me revenue trend by fiscal quarter' — using the April fiscal year
-
-**Text instructions:**
-- Revenue = quantity * unit_price
-- Fiscal year starts April 1st
-- Region codes: AMER = Americas, EMEA = Europe/Middle East/Africa, APJ = Asia Pacific/Japan, LATAM = Latin America
-
-**Join specs:** orders.product_id = products.product_id (MANY_TO_ONE)
-**Hidden columns:** etl_timestamp, internal_batch_id
-
-Does this look right, or would you like to change anything?"
-
-*(Agent waits for user approval)*
-
-**User:** "Looks good! Use warehouse `abc123`, put it in `/Users/sean/genie_spaces`"
-
-**Agent:** *(now generates the configuration, validates, tests SQL, and creates the space)*
+See [references/example_conversation.md](references/example_conversation.md) for a full multi-turn example demonstrating the pause-heavy, conversational pattern.
 
 ## Validation Checklist
 
-Before creating the space, verify:
+See [references/validation_checklist.md](references/validation_checklist.md) — run through this before creating the space.
 
-- [ ] **Title** is a clear, descriptive name (not empty, not generic like "Untitled" or "New Space")
-- [ ] **Description** is a one-sentence summary of the space's purpose
-- [ ] Space has a **clearly defined purpose** for a specific topic and audience
-- [ ] At least one valid Unity Catalog table is specified
-- [ ] Tables are **focused** — ideally 5 or fewer, maximum 25
-- [ ] Tables exist and user has SELECT permission
-- [ ] **Actual column names and values have been inspected** (run `DESCRIBE TABLE` and `SELECT DISTINCT` on key columns)
-- [ ] Column names and descriptions are clear and well-annotated in Unity Catalog
-- [ ] Warehouse ID is valid and is a pro or serverless SQL warehouse
-- [ ] Parent path exists in workspace
-- [ ] Sample questions are business-friendly and cover common use cases
-- [ ] **SQL expressions** (`sql_snippets`) are defined for key metrics, filters, and dimensions, with table-qualified column references that match `data_sources` tables
-- [ ] **Example SQL queries** are included for complex or multi-step questions
-- [ ] **All example SQL queries have been executed** and return valid results (no errors, non-empty)
-- [ ] **Text instructions** are concise, specific, and non-conflicting
-- [ ] Instructions across all types are consistent (e.g., same rounding, same date conventions)
-- [ ] **`column_configs`** include `enable_format_assistance: true` and `enable_entity_matching: true` for all string/category filter columns (prompt matching is NOT auto-enabled via API)
+## Error Handling, Troubleshooting, and Additional Resources
 
-## Error Handling, Troubleshooting, and Diagnosing Existing Spaces
-
-For error handling (HTTP status codes, common error scenarios), troubleshooting common issues (misunderstood jargon, incorrect joins, filtering errors, etc.), and the full workflow for diagnosing and optimizing existing spaces, see [references/diagnose_optimize_space.md](references/diagnose_optimize_space.md).
-
----
-
-## Additional Resources
-
-- [Set Up and Manage a Genie Space](https://docs.databricks.com/aws/en/genie/set-up)
-- [Curate an Effective Genie Space — Best Practices](https://docs.databricks.com/aws/en/genie/best-practices)
-- [Use Parameters in SQL Queries](https://docs.databricks.com/aws/en/genie/query-params)
-- [Use Trusted Assets in Genie Spaces](https://docs.databricks.com/aws/en/genie/trusted-assets)
-- [Use Benchmarks in a Genie Space](https://docs.databricks.com/aws/en/genie/benchmarks)
-- [Troubleshoot Genie Spaces](https://docs.databricks.com/aws/en/genie/troubleshooting)
-- [Genie API Reference](https://docs.databricks.com/api/workspace/genie)
-- [Create Genie Space API](https://docs.databricks.com/api/workspace/genie/createspace)
+For error handling, troubleshooting, the diagnose/optimize workflow, and links to official Databricks documentation, see [references/diagnose_optimize_space.md](references/diagnose_optimize_space.md).
