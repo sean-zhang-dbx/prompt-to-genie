@@ -1,6 +1,6 @@
 # Prompt to Genie Space
 
-A [Genie Code agent skill](https://docs.databricks.com/aws/en/assistant/skills) that lets you create or optimize [AI/BI Genie](https://docs.databricks.com/aws/en/genie/index.html) spaces using natural language — directly from the Databricks Assistant in agent mode. As this skill follows the standard [Agent Skill](https://agentskills.io/specification) format, it is extensible to other agents such as Cursor or Claude Code. It takes only 5 seconds to configure!
+A [Genie Code agent skill](https://docs.databricks.com/aws/en/assistant/skills) that lets you create or optimize [AI/BI Genie](https://docs.databricks.com/aws/en/genie/index.html) spaces using natural language — directly from the Genie Code in agent mode. As this skill follows the standard [Agent Skill](https://agentskills.io/specification) format, it is extensible to other agents such as Cursor or Claude Code. It takes only 5 seconds to configure!
 
 Instead of manually configuring Genie spaces through the UI or writing raw API calls, simply describe what you want in plain English and let the Assistant handle the rest.
 
@@ -9,7 +9,7 @@ Instead of manually configuring Genie spaces through the UI or writing raw API c
 ### Prerequisites
 
 - A Databricks workspace with [AI/BI Genie](https://docs.databricks.com/aws/en/genie/index.html) enabled
-- Access to Databricks Assistant in **agent mode**
+- Access to Genie Code in **agent mode**
 - A **pro or serverless SQL warehouse** (serverless recommended for performance)
 - SELECT permissions on the Unity Catalog tables you want to include
 
@@ -50,7 +50,7 @@ When working with Databricks AI/BI Genie spaces — creating, managing, auditing
 
 #### Step 3: Start using it with a Databricks Notebook
 
-Open the Databricks Assistant in agent mode with a blank Notebook open and ask something like:
+Open Genie Code in agent mode with a blank Notebook open and ask something like:
 
 > "I want to create a Genie space for our sales team to analyze revenue by product and region."
 
