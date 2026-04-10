@@ -81,7 +81,7 @@ Determine which Unity Catalog tables to include. **Keep the dataset focused** â€
 ### Data Source Best Practices
 
 - **Aim for 5 or fewer tables.** The more focused your selection, the better Genie performs. Limit the number of columns in your included tables to what's actually relevant.
-- **Maximum 25 tables per space.** If you need more, prejoin related tables into views or metric views before adding them to the space.
+- **Maximum 30 tables per space.** If you need more, prejoin related tables into views or metric views before adding them to the space.
 - **Prejoin and de-normalize when possible.** Use views or metric views to resolve column ambiguities and simplify complex relationships. Metric views are particularly effective because they pre-define metrics, dimensions, and aggregations.
 - **Build on well-annotated tables.** Genie uses Unity Catalog column names and descriptions to generate responses. Clear column names and descriptions help produce high-quality answers. Advise users to add or review column descriptions in Unity Catalog before creating the space.
 - **Never hide columns without explicit approval.** After profiling tables, you may suggest columns that look irrelevant (e.g., ETL timestamps, internal IDs), but you **must ask the user and get confirmation** before excluding anything. Do not set `exclude: true` on any column that the user has not explicitly approved for hiding.
